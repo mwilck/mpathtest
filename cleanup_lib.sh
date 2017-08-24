@@ -43,7 +43,7 @@ _cleanup() {
 	    echo -n "Cleanup ${__clean__}: "
 	    cat "${__CLEANUP__}/${__clean__}"
 	fi >&2
-	source "${__CLEANUP__}/${__clean__}"
+	(exec 63<&-; source "${__CLEANUP__}/${__clean__}")
 	rm -f "${__CLEANUP__}/${__clean__}"
     done < <(ls -r ${__CLEANUP__})
     rmdir ${__CLEANUP__}
