@@ -19,6 +19,7 @@ set -E
 HEXPID=$(printf %04x $$)
 PVS=()
 LVS=()
+MOUNTPOINTS=()
 N_PARTS=0
 N_FS=0
 N_LVS=0
@@ -97,7 +98,7 @@ delete_slaves() {
     [[ $1 && $2 && -b $1 ]]
     slaves=$(get_slaves $2)
     for slv in $slaves; do
-	msg 2 Slave $slv will be deleted
+	msg 2 old slave $slv will be deleted
     done
     
     kpartx -d $1
@@ -107,7 +108,7 @@ delete_slaves() {
     done
 
     msg 2 wiping partition table on $1
-    sgdisk --zap-all $DMDEV
+    sgdisk --zap-all $DMDEV &>/dev/null
 }
 
 create_parts() {
@@ -150,6 +151,26 @@ create_parts() {
 
 }
 
+fstab_entry() {
+    # arg $1: fs type
+    # arg $2: label
+    # arg $3: uuid
+    mkdir -p "/tmp/$2"
+    push_cleanup rmdir "/tmp/$2"
+    push_cleanup umount -l "/tmp/$2"
+    MOUNTPOINTS[${#MOUNTPOINTS[@]}]="$2"
+    push_cleanup systemctl daemon-reload
+    if [[ $((${#MOUNTPOINTS[@]} % 2)) -eq 0 ]]; then
+	echo LABEL=$2 /tmp/$2 $1 defaults 0 0 >>/etc/fstab
+	push_cleanup sed -i "/LABEL=$2/d" /etc/fstab
+    else
+	echo UUID=$3 /tmp/$2 $1 defaults 0 0 >>/etc/fstab
+	push_cleanup sed -i "/UUID=$3/d" /etc/fstab
+    fi
+    systemctl daemon-reload
+    usleep 100000
+}
+
 create_fs() {
     # arg $1: device to create FS on
     # arg $2: fs type or "lvm"
@@ -165,13 +186,16 @@ create_fs() {
     msg 2 creating $fs on $pdev, label $label, uuid $uuid
     case $fs in
 	ext2)
+	    fstab_entry ext4 $label $uuid
 	    mke2fs -F -q -t ext4 -L $label -U $uuid $pdev
 	    ;;
 	xfs)
+	    fstab_entry xfs $label $uuid
 	    mkfs.xfs -f -q -L $label $pdev
 	    xfs_admin -U $uuid $pdev &>/dev/null
 	    ;;
 	btrfs)
+	    fstab_entry btrfs $label $uuid
 	    mkfs.btrfs -q -f -L $label -U $uuid $pdev
 	    ;;
 	lvm)
@@ -219,6 +243,18 @@ create_lvs() {
     done
 }
 
+prepare() {
+    delete_slaves $DMDEV $DEVNO
+
+    start_monitor udev_prep.log
+
+    create_parts $DMDEV $DEVSZ_MiB $FS_TYPES
+    create_filesystems $MPATH $FS_TYPES
+    create_lvs $LV_TYPES
+    
+    stop_monitor
+}
+
 TMPD=$(mktemp -d /tmp/$ME-XXXXXX)
 push_cleanup rm -rf "$TMPD"
 msg 1 temp dir is $TMPD
@@ -235,27 +271,31 @@ PATHS=($(get_path_list "$MPATH"))
 
 msg 2 Checking mpath $MPATH with ${#PATHS[@]} paths: ${PATHS[@]}
 
-delete_slaves $DMDEV $DEVNO
-
-start_monitor udev_prep.log
-
-create_parts $DMDEV $DEVSZ_MiB ext2 xfs lvm
-create_filesystems $MPATH ext2 xfs lvm
-create_lvs btrfs ext2
-
-stop_monitor
+prepare
 
 SLAVES="$(get_slaves_rec $DEVNO)"
 #msg 2 monitor output:
 #cat $TMPD/udev_prep.log
 msg 2 new slaves: "$SLAVES"
 
-for slv in $SLAVES; do
-    msg 2 symlinks for $slv:
-    for sl in $(get_symlinks $(get_dmdev $slv)); do
-	ls -l /dev/$sl
-    done
+#for slv in $SLAVES; do
+#    msg 2 symlinks for $slv:
+#    for sl in $(get_symlinks $(get_dmdev $slv)); do
+#	ls -l /dev/$sl
+#    done
+#done
+
+msg 2 mounted file systems:
+grep tm${HEXPID} /proc/mounts
+
+for mp in ${MOUNTPOINTS[@]}; do
+    grep -q /tmp/$mp /proc/mounts && continue
+    msg 2 manually mounting $mp
+    systemctl start tmp-$mp.mount
 done
+
+msg 2 mounted file systems now:
+grep tm${HEXPID} /proc/mounts
 
 msg 5 hit key:
 read _a
