@@ -7,7 +7,8 @@ MYDIR=$(cd "$(dirname $0)" && pwd)
 set -E
 
 # mpath name
-: ${MPATH:=3600601600a3020002282d7e2c5a6e411}
+#: ${MPATH:=3600601600a3020002282d7e2c5a6e411}
+: ${MPATH:=}
 : ${DEBUGLVL:=2}
 : ${UUID_PATTERN:=54f41f67-bd36-%s-%04x-0966d6a9c810}
 : ${VG:=tm_vg}
@@ -15,19 +16,29 @@ set -E
 : ${FS_TYPES:="ext2 xfs lvm"}
 # LVs to create. All LVs will have equal size
 : ${LV_TYPES:="ext2 btrfs"}
+# debug levels for multipathd (0-5) and udev (err, info, debug)
+: ${MULTIPATHD_DEBUG:=0}
+: ${UDEV_DEBUG:=err}
 
-HEXPID=$(printf %04x $$)
 PVS=()
 LVS=()
 MOUNTPOINTS=()
+HEXPID=$(printf %04x $$)
 N_PARTS=0
 N_FS=0
 N_LVS=0
 
+timestamp() {
+    local x=$(date +%H:%M:%S.%N)
+    echo ${x:0:-3}
+}
+
 msg() {
-    [[ $1 -lt $DEBUGLVL ]] && return
+    [[ $1 -gt $DEBUGLVL ]] && return
     shift
-    echo "== $ME: $*" >&2;
+    local m="$(timestamp) == $*"
+    echo "$m" >&2;
+    [[ ! -e /proc/self/fd/5 ]] || echo "$m" >&5;
 }
 
 get_dmdev() {
@@ -80,9 +91,38 @@ start_monitor() {
     # arg $1: output file
     [[ $1 ]]
     [[ -z "$_MONITOR_PID" && -z "$_MONITOR_CLEAN" ]]
-    udevadm monitor --env -s block >& "$TMPD"/$1 &
+    udevadm monitor --env -s block >& "$OUTD"/$1 &
     _MONITOR_PID=$!
     push_cleanup stop_monitor
+}
+
+debug_multipathd() {
+    # arg $1: "on" or "off"
+    [[ $MULTIPATHD_DEBUG -gt 0 ]] || return 0
+    if [[ x$1 = xon ]]; then
+	msg 4 setting verbose level $MULTIPATHD_DEBUG for multipathd
+	mkdir -p /etc/systemd/system/multipathd.service.d
+	cat >/etc/systemd/system/multipathd.service.d/debug.conf <<EOF
+[Service]
+ExecStart=
+ExecStart=/sbin/multipathd -d -s -v$MULTIPATHD_DEBUG
+EOF
+    else
+	rm -f /etc/systemd/system/multipathd.service.d/debug.conf
+    fi
+    systemctl daemon-reload
+    msg 3 restarting multipathd
+    systemctl restart multipathd
+}
+
+debug_udev() {
+    # arg $1: "on" or "off"
+    if [[ x$1 = xon && x$UDEV_DEBUG != xerr ]]; then
+	msg 4 setting debug level $UDEV_DEBUG for udev
+	udevadm control -l $UDEV_DEBUG
+    else
+	udevadm control -l err
+    fi
 }
 
 stop_monitor() {
@@ -107,8 +147,6 @@ delete_slaves() {
 	dmsetup remove /dev/mapper/$slv
     done
 
-    msg 2 wiping partition table on $1
-    sgdisk --zap-all $DMDEV &>/dev/null
 }
 
 create_parts() {
@@ -171,6 +209,10 @@ fstab_entry() {
     usleep 100000
 }
 
+run_lvm() {
+    "$@" 5>&-
+}
+
 create_fs() {
     # arg $1: device to create FS on
     # arg $2: fs type or "lvm"
@@ -199,7 +241,7 @@ create_fs() {
 	    mkfs.btrfs -q -f -L $label -U $uuid $pdev
 	    ;;
 	lvm)
-	    pvcreate -q -u $uuid --norestorefile $pdev
+	    run_lvm pvcreate -q -u $uuid --norestorefile $pdev
 	    PVS[${#PVS[@]}]=$pdev
 	    ;;
     esac
@@ -229,13 +271,13 @@ create_lvs() {
     N_LVS=$#
     sz=$((100/N_LVS))
 
-    vgcreate -q $VG "${PVS[@]}"
+    run_lvm vgcreate -q $VG "${PVS[@]}"
     push_cleanup vgremove -q -f $VG
     
     while [[ $# -gt 0 ]]; do
 	N_FS=$((N_FS+1))
 	name=lv_${N_FS}_$1
-	lvcreate -q -y -n $name -l ${sz}%FREE $VG
+	run_lvm lvcreate -q -y -n $name -l ${sz}%FREE $VG
 	push_cleanup lvremove -q -f /dev/$VG/$name
 	LVS[${#LVS[@]}]=$name
 	create_fs /dev/$VG/$name $1
@@ -248,16 +290,130 @@ prepare() {
 
     start_monitor udev_prep.log
 
-    create_parts $DMDEV $DEVSZ_MiB $FS_TYPES
-    create_filesystems $MPATH $FS_TYPES
+    msg 3 wiping partition table on $DMDEV
+    sgdisk --zap-all $DMDEV &>/dev/null
+
+    if [[ o$NO_PARTITIONS = oyes ]]; then
+	FS_TYPES=lvm
+	create_fs $DMDEV lvm
+    else
+	create_parts $DMDEV $DEVSZ_MiB $FS_TYPES
+	create_filesystems $MPATH $FS_TYPES
+    fi
     create_lvs $LV_TYPES
     
     stop_monitor
 }
 
+SHORTOPTS=o:np:l:m:u:vth
+LONGOPTS='output:,parts:,lvs,mp-debug:,udev-debug:,verbose,trace,help'
+USAGE="
+usage: $ME [options] mapname
+       -h|--help		print help
+       -o|--output		output directory (default: auto)
+       -n|--no-partitions	don't create partitions (ignore -p)
+       -p|--parts x,y,z		partition types (ext2, xfs, btrfs, lvm)
+       -l|--lvs x,y,z		logical volumes (ext2, xfs, btrfs, lvm)
+       -m lvl|--mp-debug lvl	set multipathd debug level
+       -u lvl|--udev-debug lvl  set udev debug level
+       -q|--quiet	   	decrease verbose level for script
+       -v|--verbose 	   	increase verbose level for script
+       -t|--trace	   	trace this script
+"
+
+usage() {
+    msg 1 "$USAGE"
+}
+
+# This way we catch getopt errors, doesn't work with direct set command
+OPTIONS=($(getopt -s bash -o "$SHORTOPTS" --longoptions "$LONGOPTS" -- "$@"))
+set -- "${OPTIONS[@]}"
+unset OPTIONS
+
+TRACE=
+NO_PARTITIONS=
+while [[ $# -gt 0 ]]; do
+    case $1 in
+	-h|--help)
+	    usage
+	    exit 0
+	    ;;
+	-o|--output)
+	    shift
+	    eval "OUTD=$1"
+	    ;;
+	-n|--no-partitions)
+	    NO_PARTITIONS=yes
+	    ;;
+	-p|--parts)
+	    shift
+	    eval "FS_TYPES=${1//,/ }"
+	    ;;
+	-l|--lvs)
+	    shift
+	    eval "LV_TYPES=${1//,/ }"
+	    ;;
+	-m|--mp-debug)
+	    shift
+	    eval "MULTIPATHD_DEBUG=$1"
+	    ;;
+	-u|--udev-debug)
+	    shift
+	    eval "UDEV_DEBUG=$1"
+	    ;;
+	-v|--verbose)
+	    : $((++DEBUGLVL))
+	    ;;
+	-q|--quiet)
+	    : $((--DEBUGLVL))
+	    ;;
+	-t|--trace)
+	    TRACE=yes
+	    ;;
+	--)
+	    shift
+	    break
+	    ;;
+	-?|--*)
+	    usage
+	    exit 1
+	    ;;
+	*)
+	    break
+	    ;;
+    esac
+    shift
+done
+[[ $# -eq 1 ]] || { usage; exit 1; }
+eval "MPATH=$1"
+
+[[ $LV_TYPES || $FS_TYPES ]]
+if [[ $LV_TYPES ]]; then
+    case $FS_TYPES in
+	*lvm*) ;;
+	*) FS_TYPES="$FS_TYPES lvm";;
+    esac
+fi
+[[ o$TRACE = oyes ]] && set -x
+
+exec 5>&2
+ERR_FD=5 # for err_handler
+
+STARTTIME=$(date +"%Y-%m-%d %H:%M:%S")
+: ${OUTD:="$PWD/logs-$ME-${STARTTIME// /_}"}
+mkdir -p $OUTD
+
+exec &>$OUTD/script.log
 TMPD=$(mktemp -d /tmp/$ME-XXXXXX)
+
 push_cleanup rm -rf "$TMPD"
-msg 1 temp dir is $TMPD
+msg 1 output dir is $OUTD
+
+push_cleanup journalctl -o short-precise --since '"$STARTTIME"' '>$OUTD/journal.log'
+debug_multipathd on
+push_cleanup debug_multipathd off
+debug_udev on
+push_cleanup debug_udev off
 
 DMDEV=$(get_dmdev $MPATH)
 DMNAME=${DMDEV#/dev/}
@@ -285,7 +441,8 @@ msg 2 new slaves: "$SLAVES"
 #    done
 #done
 
-msg 2 mounted file systems:
+sleep 2
+msg 2 mounted file systems: "$(grep tm${HEXPID} /proc/mounts)"
 grep tm${HEXPID} /proc/mounts
 
 for mp in ${MOUNTPOINTS[@]}; do
@@ -294,10 +451,9 @@ for mp in ${MOUNTPOINTS[@]}; do
     systemctl start tmp-$mp.mount
 done
 
-msg 2 mounted file systems now:
-grep tm${HEXPID} /proc/mounts
+msg 2 mounted file systems now: "$(grep tm${HEXPID} /proc/mounts)"
 
-msg 5 hit key:
+msg 1 hit key:
 read _a
 
 exit 0
