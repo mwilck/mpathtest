@@ -34,6 +34,7 @@ get_cleanup_handle(){
 _cleanup() {
     local __clean__
     trap - 0
+    trap - ERR
     set +eE
     if [[ ! -n "${__CLEANUP__}" || ! -d ${__CLEANUP__} ]]; then
 	return 0
