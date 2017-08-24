@@ -16,7 +16,24 @@ msg() {
 }
 
 get_path_list() {
-    multipathd show paths format "%m %d" | sed -n "s/$1 //p"
+    # arg $1: multipath map name
+    [[ $1 ]]
+    multipathd show paths format "%m %d" | sed -n "s/$1 //p" | sort
+}
+
+get_symlinks() {
+    # arg $1: dm device /dev/dm-$X
+    [[ $1 ]]
+    cd /dev
+    find . -type l -ls  | \
+	sed -n /"$1"'$/s,^.*\./\([^[:space:]]*\)[[:space:]].*$,\1,p'
+    cd -
+}
+
+get_slaves() {
+    # arg $1: dm device in major:minor format
+    [[ $1 ]]
+    dmsetup table | sed -n /" $1 "'/s/: .*//p'
 }
 
 start_monitor() {
@@ -32,18 +49,41 @@ stop_monitor() {
     unset _MONITOR_PID
 }
 
+delete_slaves() {
+    SLAVES=$(get_slaves $DEVNO)
+    for slv in $SLAVES; do
+	msg 2 Slave $slv will be deleted
+    done
+    
+    kpartx -d $DMDEV
+    SLAVES=$(get_slaves $DEVNO)
+    for slv in $SLAVES; do
+	dmsetup remove /dev/mapper/$slv
+    done
+    # Wipe partition table
+    dd if=/dev/null of=$DMDEV bs=1m count=1
+}
+
 TMPD=$(mktemp -d /tmp/$ME-XXXXXX)
 push_cleanup rm -rf "$TMPD"
 msg 1 temp dir is $TMPD
 
-[[ -b /dev/mapper/"$MPATH" ]]
+DMDEV=$(readlink -f /dev/mapper/$MP)
+DMNAME=${DMDEV#/dev/}
+DEVNO=$(dmsetup info -c -o major,minor --noheadings $DMDEV)
+[[ -b $DMDEV ]]
+DEVSZ_MB=$(($(blockdev --getsz /dev/dm-2)/2048))
+[[ $DEVSZ_MB -gt 1 ]]
 
 PATHS=($(get_path_list "$MPATH"))
 [[ ${#PATHS[@]} -gt 0 ]]
 
 msg 2 Checking mpath $MPATH with ${#PATHS[@]} paths: ${PATHS[@]}
 
+delete_slaves
+
 start_monitor
+exit 0
 
 sleep 1
 
