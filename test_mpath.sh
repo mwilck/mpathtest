@@ -87,6 +87,71 @@ $(get_slaves_rec $dn)"
     echo "$slaves$children"
 }
 
+block_sysfs_dir() {
+    # arg $1: disk device e.g. sdc
+    readlink -f /sys/block/$1/device
+}
+
+scsi_hctl() {
+    # arg $1: sysfs device dir
+    [[ -d $1/scsi_disk ]] || return 0
+    basename $1
+}
+
+scsi_host() {
+    # arg $1: sysfs device dir
+    local d=$1
+    while [[ $d && $d != / && ! -d $d/scsi_host ]]; do
+	d=$(dirname $d)
+    done
+    d=$d/scsi_host/$(basename $d)
+    [[ -d $d ]]
+    echo $d
+}
+    
+_make_scsi_scripts() {
+    # arg $1: disk device e.g. sdc
+    local disk sd hctl host x
+    disk=${1#/dev/}
+    sd=$(block_sysfs_dir $disk)
+    [[ $sd && -d $sd ]]
+    hctl=$(scsi_hctl $sd)
+    [[ $hctl ]] || return 0
+    hctl=${hctl//:/ }
+    host=$(scsi_host $sd)
+    echo "echo offline >$sd/state" >$TMPD/offline-$disk
+    echo "echo running >$sd/state" >$TMPD/online-$disk
+    echo "echo 1 >$sd/delete" >$TMPD/remove-$disk
+    echo "echo ${hctl#* } >$host/scan" >$TMPD/add-$disk
+}
+
+_make_disk_scripts() {
+    # arg $1: disk device e.g. sdc
+    local disk
+    disk=${1#/dev/}
+    echo multipathd add path $1 >$TMPD/mp-add-$disk
+    echo multipathd remove path $1 >$TMPD/mp-remove-$disk
+    echo multipathd fail path $1 >$TMPD/mp-fail-$disk
+    echo multipathd reinstate path $1 >$TMPD/mp-reinstate-$disk
+}
+
+make_disk_scripts() {
+    while [[ $# -gt 0 ]]; do
+	_make_disk_scripts $1
+	_make_scsi_scripts $1
+	shift
+    done
+}
+
+action() {
+    # arg $1: add, remove, offline, online
+    # arg $2: disk, e.g. sdn
+    local script=$TMPD/$1-${2#/dev/}
+    [[ -f $script ]]
+    msg 3 $1 $2
+    source $script
+}
+
 start_monitor() {
     # arg $1: output file
     [[ $1 ]]
@@ -286,6 +351,8 @@ create_lvs() {
 }
 
 prepare() {
+    make_disk_scripts ${PATHS[@]}
+
     delete_slaves $DMDEV $DEVNO
 
     start_monitor udev_prep.log
@@ -427,6 +494,7 @@ PATHS=($(get_path_list "$MPATH"))
 
 msg 2 Checking mpath $MPATH with ${#PATHS[@]} paths: ${PATHS[@]}
 
+
 prepare
 
 SLAVES="$(get_slaves_rec $DEVNO)"
@@ -451,31 +519,29 @@ for mp in ${MOUNTPOINTS[@]}; do
     systemctl start tmp-$mp.mount
 done
 
-msg 2 mounted file systems now: "$(grep tm${HEXPID} /proc/mounts)"
+msg 2 mounted file systems: "$(grep tm${HEXPID} /proc/mounts)"
 
 msg 1 hit key:
 read _a
 
-exit 0
+start_monitor remove-add
 
-sleep 1
-
+# without this, umount etc. may fail
+push_cleanup action add  ${PATHS[0]}
 for path in ${PATHS[@]}; do
-    msg 2 removing $path
-    multipathd remove path $path
-    sleep 1
+    action remove $path
+    usleep 100000
 done
 
-multipathd show topology
+multipathd show map $MPATH topology >&5
+msg 2 mounted file systems: "$(grep tm${HEXPID} /proc/mounts)"
 
 for path in ${PATHS[@]}; do
-    msg 2 adding $path
-    multipathd add path $path
-    sleep 1
+    action add $path
+    usleep 100000
 done
 
-multipathd show topology
+multipathd show map $MPATH topology >&5
+msg 2 mounted file systems: "$(grep tm${HEXPID} /proc/mounts)"
 
 stop_monitor
-
-cat "$TMPD"/udev-monitor.log
