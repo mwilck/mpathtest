@@ -64,8 +64,14 @@ get_devno() {
 get_path_list() {
     # arg $1: multipath map name
     # output: list of hwids e.g. scsi-1:0:0:8
+    local pts dbl
     [[ $1 ]]
-    multipathd show paths format "%m %i" | sed -n "s/$1 /scsi-/p" | sort
+    pts="$(multipathd show paths format "%m %i" | sed -n "s/$1 /scsi-/p" | sort)"
+    dbl=$(uniq -d <<< "$pts")
+    [[ ! $dbl ]] || {
+	msg 1 Error: duplicate paths in $1: $dbl; false
+    }
+    echo "$pts"
 }
 
 get_symlinks() {
