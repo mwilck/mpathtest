@@ -556,6 +556,8 @@ msg 2 Checking mpath $MPATH with ${#PATHS[@]} paths: ${PATHS[@]}
 prepare
 
 SLAVES="$(get_slaves_rec $DEVNO)"
+[[ -n "$SLAVES" ]]
+
 #msg 2 monitor output:
 #cat $TMPD/udev_prep.log
 msg 2 new slaves: "$SLAVES"
