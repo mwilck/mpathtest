@@ -165,7 +165,7 @@ _make_disk_scripts() {
     case $1 in
 	scsi-*)
 	    bl="\$(scsi_hctl_to_block ${1#scsi-})"
-	    _make_disk_scripts ${1#scsi-}
+	    _make_scsi_scripts ${1#scsi-}
 	    ;;
 	*)
 	    msg 1 unkown hw type: $1
