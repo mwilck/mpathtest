@@ -23,6 +23,7 @@ set -E
 PVS=()
 LVS=()
 MOUNTPOINTS=()
+HOSTS=()
 HEXPID=$(printf %04x $$)
 N_PARTS=0
 N_FS=0
@@ -63,8 +64,9 @@ get_devno() {
 
 get_path_list() {
     # arg $1: multipath map name
+    # output: list of hwids e.g. scsi-1:0:0:8
     [[ $1 ]]
-    multipathd show paths format "%m %d" | sed -n "s/$1 //p" | sort
+    multipathd show paths format "%m %i" | sed -n "s/$1 /scsi-/p" | sort
 }
 
 get_symlinks() {
@@ -142,35 +144,44 @@ sysfsdir_to_scsihost() {
 }
     
 _make_scsi_scripts() {
-    # arg $1: disk device e.g. sdc
-    local disk sd hctl host x
-    disk=${1#/dev/}
-    sd=$(block_sysfs_dir $disk)
-    [[ $sd && -d $sd ]]
-    hctl=$(scsi_hctl $sd)
-    [[ $hctl ]] || return 0
-    hctl=${hctl//:/ }
-    host=$(scsi_host $sd)
-    echo "echo offline >$sd/state" >$TMPD/offline-$disk
-    echo "echo running >$sd/state" >$TMPD/online-$disk
-    echo "echo 1 >$sd/delete" >$TMPD/remove-$disk
-    echo "echo ${hctl#* } >$host/scan" >$TMPD/add-$disk
+    # arg $1: scsi hctl e.g. 7:0:0:1
+    # side effect: populates HOSTS
+    local sd hctl host x
+    sd=$(scsi_hctl_to_sysfsdir $1)
+    [[ $sd && -d $sd ]] || return 0 # not a scsi device
+    hctl=${1//:/ }
+    host=$(sysfsdir_to_scsihost $sd)
+    echo "echo offline >$sd/state" >$TMPD/offline-scsi-$1
+    echo "echo running >$sd/state" >$TMPD/online-scsi-$1
+    echo "echo 1 >$sd/delete" >$TMPD/remove-scsi-$1
+    echo "echo ${hctl#* } >$host/scan" >$TMPD/add-scsi-$1
+    add_to_set $host HOSTS
 }
 
 _make_disk_scripts() {
-    # arg $1: disk device e.g. sdc
-    local disk
-    disk=${1#/dev/}
-    echo multipathd add path $1 >$TMPD/mp-add-$disk
-    echo multipathd remove path $1 >$TMPD/mp-remove-$disk
-    echo multipathd fail path $1 >$TMPD/mp-fail-$disk
-    echo multipathd reinstate path $1 >$TMPD/mp-reinstate-$disk
+    # arg $1: hw id e.g. scsi-7:0:0:1
+    # SCSI device names may change
+    local bl
+    case $1 in
+	scsi-*)
+	    bl="\$(scsi_hctl_to_block ${1#scsi-})"
+	    _make_disk_scripts ${1#scsi-}
+	    ;;
+	*)
+	    msg 1 unkown hw type: $1
+	    false
+	    ;;
+    esac
+    echo multipathd add path "$bl" >$TMPD/mp-add-$1
+    echo multipathd remove path "$bl" >$TMPD/mp-remove-$1
+    echo multipathd fail path $bl >$TMPD/mp-fail-$1
+    echo multipathd reinstate path $bl >$TMPD/mp-reinstate-$1
 }
 
 make_disk_scripts() {
+    # args: list of hwids e.g. scsi-2:0:0:2
     while [[ $# -gt 0 ]]; do
 	_make_disk_scripts $1
-	_make_scsi_scripts $1
 	shift
     done
 }
