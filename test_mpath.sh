@@ -206,13 +206,32 @@ action() {
     source $script
 }
 
+create_monitor_service() {
+    local serv=/etc/systemd/system/tm-udev-monitor@.service
+    [[ ! -f $serv ]] || return 0
+    cat >$serv <<\EOF
+[Unit]
+Description=Udev monitor for multipath test
+Requires=systemd-udevd.service
+After=systemd-udevd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/udevadm monitor -s %i --env
+
+[Install]
+WantedBy=multi-user.target
+EOF
+}
+
+stop_monitor() {
+    systemctl stop tm-udev-monitor@block.service
+}
+
 start_monitor() {
-    # arg $1: output file
-    [[ $1 ]]
-    [[ -z "$_MONITOR_PID" && -z "$_MONITOR_CLEAN" ]]
-    udevadm monitor --env -s block >& "$OUTD"/$1 &
-    _MONITOR_PID=$!
+    create_monitor_service
     push_cleanup stop_monitor
+    systemctl start tm-udev-monitor@block.service
 }
 
 debug_multipathd() {
@@ -242,12 +261,6 @@ debug_udev() {
     else
 	udevadm control -l err
     fi
-}
-
-stop_monitor() {
-    [[ $_MONITOR_PID ]] || return 0
-    kill $_MONITOR_PID
-    unset _MONITOR_PID
 }
 
 delete_slaves() {
@@ -417,7 +430,7 @@ prepare() {
 
     delete_slaves $DMDEV $DEVNO
 
-    start_monitor udev_prep.log
+    start_monitor
 
     msg 3 wiping partition table on $DMDEV
     sgdisk --zap-all $DMDEV &>/dev/null
@@ -431,8 +444,6 @@ prepare() {
     fi
     create_lvs $LV_TYPES
     push_cleanup cleanup_paths
-
-    stop_monitor
 }
 
 SHORTOPTS=o:np:l:m:u:vth
@@ -608,4 +619,3 @@ done
 multipathd show map $MPATH topology >&5
 msg 2 mounted file systems: "$(grep tm${HEXPID} /proc/mounts)"
 
-stop_monitor
