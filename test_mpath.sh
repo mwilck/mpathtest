@@ -95,24 +95,48 @@ $(get_slaves_rec $dn)"
     echo "$slaves$children"
 }
 
-block_sysfs_dir() {
+block_to_sysfsdir() {
     # arg $1: disk device e.g. sdc
     readlink -f /sys/block/$1/device
 }
 
-scsi_hctl() {
+sysfsdir_to_scsi_hctl() {
     # arg $1: sysfs device dir
     [[ -d $1/scsi_disk ]] || return 0
     basename $1
 }
 
-scsi_host() {
+block_to_scsi_hctl() {
+    # arg $1: disk device e.g. sdc
+    sysfsdir_to_scsi_hctl $(block_to_sysfsdir $1)
+}
+
+scsi_hctl_to_sysfsdir() {
+    # arg $1: hctl e.g. 7:0:0:1
+    readlink -f /sys/class/scsi_device/$1/device
+}
+
+scsi_hctl_to_block() {
+    # arg $1: hctl e.g. 7:0:0:1
+    # this errors out if there are multiple entries
+    local bl=$(basename $(scsi_hctl_to_sysfsdir $1)/block/*)
+    # this errors out if sysfs dir doesn't exist
+    [[ $bl != "*" ]]
+    echo $bl
+}
+
+block_to_devno() {
+    # arg $1: disk device e.g. sdc
+    cat /sys/class/block/$1/dev
+}
+
+sysfsdir_to_scsihost() {
     # arg $1: sysfs device dir
     local d=$1
-    while [[ $d && $d != / && ! -d $d/scsi_host ]]; do
+    while [[ $d && $d != / && ! -d $d/sysfsdir_to_scsihost ]]; do
 	d=$(dirname $d)
     done
-    d=$d/scsi_host/$(basename $d)
+    d=$d/sysfsdir_to_scsihost/$(basename $d)
     [[ -d $d ]]
     echo $d
 }
