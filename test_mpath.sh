@@ -409,7 +409,7 @@ create_filesystems() {
 create_lvs() {
     # args: fs types to create
     local sz name
-    [[ ${#PVS[@]} -gt 0 ]] || return
+    [[ ${#PVS[@]} -gt 0 ]] || return 0
 
     N_LVS=$#
     sz=$((100/N_LVS))
