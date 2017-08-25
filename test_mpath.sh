@@ -41,6 +41,14 @@ msg() {
     [[ ! -e /proc/self/fd/5 ]] || echo "$m" >&5;
 }
 
+add_to_set() {
+    # arg $1: string
+    # arg $2: array variable
+    local var=$2 x
+    eval "for x in \${$var[@]}; do [[ x\"\$x\" = x\"\$1\" ]] && return 0; done"
+    eval "$var[\${#$var[@]}]=\$1"
+}
+
 get_dmdev() {
     # arg $1: device mapper name
     [[ $1 && -b /dev/mapper/$1 ]]
