@@ -583,8 +583,6 @@ read _a
 
 start_monitor remove-add
 
-# without this, umount etc. may fail
-push_cleanup action add  ${PATHS[0]}
 for path in ${PATHS[@]}; do
     action remove $path
     usleep 100000
