@@ -37,9 +37,8 @@ timestamp() {
 msg() {
     [[ $1 -gt $DEBUGLVL ]] && return
     shift
-    local m="$(timestamp) == $*"
-    echo "$m" >&2;
-    [[ ! -e /proc/self/fd/5 ]] || echo "$m" >&5;
+    echo "$*" >&2;
+    [[ ! -e /proc/self/fd/5 ]] || echo "$(timestamp) $*" >&5;
 }
 
 add_to_set() {
@@ -525,10 +524,10 @@ exec 5>&2
 ERR_FD=5 # for err_handler
 
 STARTTIME=$(date +"%Y-%m-%d %H:%M:%S")
-: ${OUTD:="$PWD/logs-$ME-${STARTTIME// /_}"}
+: ${OUTD:="$PWD/logs-$ME-${STARTTIME//[ :]/_}"}
 mkdir -p $OUTD
 
-exec &>$OUTD/script.log
+exec &> >(logger --id=$$ -t $ME)
 TMPD=$(mktemp -d /tmp/$ME-XXXXXX)
 
 push_cleanup rm -rf "$TMPD"
