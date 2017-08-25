@@ -307,8 +307,8 @@ create_parts() {
 		   more=
 		   ;;
 	    esac
-	    end=$((begin+sz/n))
-	    [[ $end -eq $sz ]] && end=-1s
+	    end=$((begin+sz/n-1))
+	    [[ $end -lt $sz ]] || end=-1
 	    echo mkpart tm${HEXPID}p${i}$p $type $begin $end
 	    echo $more
 	    begin=$end
