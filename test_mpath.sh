@@ -287,7 +287,7 @@ create_parts() {
     # further args: partition types recognized by parted, or "lvm"
     [[ $1 && $2 && -b $1 ]]
     local dev=$1 sz=$2
-    local p n i begin end type more
+    local p n i begin end type more pt
     shift; shift
 
     n=$#
@@ -316,7 +316,18 @@ create_parts() {
     } >$TMPD/parted.cmd
 
     N_PARTS=$n
-    parted $dev <$TMPD/parted.cmd &>/dev/null
+    msg 4 parted commands: "
+$(cat $TMPD/parted.cmd)"
+
+    parted $dev <$TMPD/parted.cmd #&>/dev/null
+
+    pt=$(parted -s $dev unit MiB print | grep '^ *[0-9]')
+    msg 3 created partition table: "
+$pt"
+    [[ $(wc -l <<< "$pt") -eq $n ]] || {
+	msg 1 error in parted, not all partitions were created; false
+    }
+
     kpartx -a -p -part $dev 
 
 }
