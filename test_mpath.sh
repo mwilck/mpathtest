@@ -46,7 +46,7 @@ add_to_set() {
     # arg $1: string
     # arg $2: array variable
     local var=$2 x
-    eval "for x in \${$var[@]}; do [[ x\"\$x\" = x\"\$1\" ]] && return 0; done"
+    eval "for x in \${$var[@]}; do [[ x\"\$x\" != x\"\$1\" ]] || return 0; done"
     eval "$var[\${#$var[@]}]=\$1"
 }
 
