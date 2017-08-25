@@ -616,16 +616,18 @@ start_monitor remove-add
 
 for path in ${PATHS[@]}; do
     action remove $path
-    usleep 100000
+    usleep 1000
 done
 
+sleep 2
 multipathd show map $MPATH topology >&5
 msg 2 mounted file systems: "$(grep tm${HEXPID} /proc/mounts)"
 
 for path in ${PATHS[@]}; do
     action add $path
-    usleep 100000
+    usleep 1000
 done
+sleep 2
 
 multipathd show map $MPATH topology >&5
 msg 2 mounted file systems: "$(grep tm${HEXPID} /proc/mounts)"
