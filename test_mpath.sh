@@ -161,10 +161,11 @@ _make_scsi_scripts() {
 _make_disk_scripts() {
     # arg $1: hw id e.g. scsi-7:0:0:1
     # SCSI device names may change
-    local bl
+    local bl bd
     case $1 in
 	scsi-*)
 	    bl="\$(scsi_hctl_to_block ${1#scsi-})"
+	    eval "bd=$bl"
 	    _make_scsi_scripts ${1#scsi-}
 	    ;;
 	*)
@@ -172,7 +173,7 @@ _make_disk_scripts() {
 	    false
 	    ;;
     esac
-    echo multipathd add path "$bl" >$TMPD/mp-add-$1
+    echo multipathd add path "$bl" "# $bd=$1" >$TMPD/mp-add-$1
     echo multipathd remove path "$bl" >$TMPD/mp-remove-$1
     echo multipathd fail path $bl >$TMPD/mp-fail-$1
     echo multipathd reinstate path $bl >$TMPD/mp-reinstate-$1
