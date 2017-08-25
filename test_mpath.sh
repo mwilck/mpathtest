@@ -289,11 +289,11 @@ create_parts() {
 		   more=
 		   ;;
 	    esac
+	    end=$((begin+sz/n))
+	    [[ $end -eq $sz ]] && end=-1s
 	    echo mkpart tm${HEXPID}p${i}$p $type $begin $end
 	    echo $more
 	    begin=$end
-	    end=$((end+sz/n))
-	    [[ $end -eq $sz ]] && end=-1s
 	done
     } >$TMPD/parted.cmd
 
