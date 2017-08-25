@@ -192,8 +192,8 @@ make_disk_scripts() {
 	shift
     done
     for x in $TMPD/*-scsi-*; do
-	msg 4 $x
-	msg 4 $(cat $x)
+	msg 5 $x
+	msg 5 $(cat $x)
     done
 }
 
