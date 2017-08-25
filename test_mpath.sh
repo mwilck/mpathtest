@@ -180,9 +180,14 @@ _make_disk_scripts() {
 
 make_disk_scripts() {
     # args: list of hwids e.g. scsi-2:0:0:2
+    local x
     while [[ $# -gt 0 ]]; do
 	_make_disk_scripts $1
 	shift
+    done
+    for x in $TMPD/*-scsi-*; do
+	msg 4 $x
+	msg 4 $(cat $x)
     done
 }
 
