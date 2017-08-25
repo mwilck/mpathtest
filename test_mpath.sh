@@ -551,7 +551,8 @@ PATHS=($(get_path_list "$MPATH"))
 [[ ${#PATHS[@]} -gt 0 ]]
 
 msg 2 Checking mpath $MPATH with ${#PATHS[@]} paths: ${PATHS[@]}
-
+msg 3 FS_TYPES: $FS_TYPES
+msg 3 LV_TYPES: $LV_TYPES
 
 prepare
 
