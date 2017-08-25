@@ -135,10 +135,10 @@ block_to_devno() {
 sysfsdir_to_scsihost() {
     # arg $1: sysfs device dir
     local d=$1
-    while [[ $d && $d != / && ! -d $d/sysfsdir_to_scsihost ]]; do
+    while [[ $d && $d != / && ! -d $d/scsi_host ]]; do
 	d=$(dirname $d)
     done
-    d=$d/sysfsdir_to_scsihost/$(basename $d)
+    d=$d/scsi_host/$(basename $d)
     [[ -d $d ]]
     echo $d
 }
