@@ -6,7 +6,7 @@ _err_handler() {
     set +eE
     trap - ERR
     if [[ $ERR_FD ]]; then
-	exec 2>&$ERR_FD
+	echo "$0: Error in command \"$BC\" on line $LINE. See logs." >&$ERR_FD
     fi
     exec >&2
     echo "$0: Error in command \"$BC\" on line $LINE. Stack:"
