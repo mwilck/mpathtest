@@ -393,6 +393,14 @@ create_lvs() {
     done
 }
 
+cleanup_paths() {
+    # try to bring up all temporarily deleted or disabled paths again
+    local act
+    for act in $TMPD/add-* $TMPD/online-* $TMPD/mp-add-* $TMPD/mp-reinstate-*; do
+	. $act
+    done
+}
+
 prepare() {
     make_disk_scripts ${PATHS[@]}
 
@@ -411,7 +419,8 @@ prepare() {
 	create_filesystems $MPATH $FS_TYPES
     fi
     create_lvs $LV_TYPES
-    
+    push_cleanup cleanup_paths
+
     stop_monitor
 }
 
