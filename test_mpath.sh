@@ -436,6 +436,18 @@ $pt"
     push_cleanup kpartx -d $dev
 }
 
+clear_parts() {
+    # Make sure no symlinks to paths remain after run
+    # these may mess up results in next run
+    local p b
+    sgdisk --zap-all $DMDEV
+    for p in ${PATHS[@]}; do
+	b=$(hwid_to_block $p) || true
+	[[ $b && -b /dev/$b ]] || continue
+	partprobe /dev/$b
+    done
+}
+
 fstab_entry() {
     # arg $1: fs type
     # arg $2: label
@@ -549,6 +561,7 @@ prepare() {
 
     msg 3 wiping partition table on $DMDEV
     sgdisk --zap-all $DMDEV &>/dev/null
+    push_cleanup clear_parts
 
     if [[ o$NO_PARTITIONS = oyes ]]; then
 	FS_TYPES=lvm
