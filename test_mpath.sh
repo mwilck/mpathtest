@@ -616,14 +616,16 @@ $(cat $OUTD/paths.$STEP)"
 	msg 1 ERROR: symlink diffs in step $STEP: "
 $dif"
     else
-	msg 1 PASS: no symlink diffs in step $STEP
+	msg 2 PASS: no symlink diffs in step $STEP
+	rm -f $OUTD/symlinks.$STEP
     fi
     dif="$(diff -u $OUTD/mounts.1 $OUTD/mounts.$STEP)" || true
     if [[ $dif ]]; then
 	msg 1 ERROR: mount diffs in step $STEP: "
 $dif"
     else
-	msg 1 PASS: no mount diffs in step $STEP
+	msg 2 PASS: no mount diffs in step $STEP
+	rm -f $OUTD/mounts.$STEP
     fi
 }
    
