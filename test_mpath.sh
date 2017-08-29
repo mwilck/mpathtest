@@ -116,6 +116,11 @@ get_path_list() {
     echo "$pts"
 }
 
+get_path_state() {
+    # arg $1: multipath map name
+    multipathd show paths format "%m %i %d %p %t %o %T" | sed -n "s/$1 //p" | sort
+}
+
 get_symlinks() {
     # arg $1: dm device name dm-$X
     [[ $1 ]]
