@@ -25,7 +25,7 @@ PVS=()
 LVS=()
 MOUNTPOINTS=()
 HOSTS=()
-HEXPID=$(printf %04x $$)
+HEXID=$(printf %04x $(($$ % 0x1000)))
 N_PARTS=0
 N_FS=0
 N_LVS=0
@@ -419,7 +419,7 @@ create_parts() {
 	    esac
 	    end=$((begin+sz/n-1))
 	    [[ $end -lt $sz ]] || end=-1
-	    echo mkpart tm${HEXPID}p${i}$p $type $begin $end
+	    echo mkpart tm${HEXID}p${i}$p $type $begin $end
 	    echo $more
 	    begin=$end
 	done
@@ -486,15 +486,15 @@ create_fs() {
     
     [[ $pdev && $fs && -b $pdev ]]
     
-    uuid=$(printf $UUID_PATTERN $HEXPID $N_FS)
+    uuid=$(printf $UUID_PATTERN $HEXID $N_FS)
     [[ ! -e /dev/disk/by-uuid/$uuid ]]
 
-    label=tm${HEXPID}p${N_FS}$fs
+    label=tm${HEXID}p${N_FS}$fs
     msg 2 creating $fs on $pdev, label $label, uuid $uuid
     case $fs in
 	ext2)
 	    fstab_entry ext4 $label $uuid
-	    mke2fs -F -q -t ext4 -L $label -U $uuid $pdev
+	    mke2fs -q -F -t ext4 -L $label -U $uuid $pdev
 	    ;;
 	xfs)
 	    fstab_entry xfs $label $uuid
@@ -583,7 +583,7 @@ prepare() {
 write_state() {
     get_path_state $MPATH >$OUTD/paths.$STEP
     get_bdev_symlinks >$OUTD/symlinks.$STEP
-    grep tm${HEXPID} /proc/mounts | sort >$OUTD/mounts.$STEP
+    grep tm${HEXID} /proc/mounts | sort >$OUTD/mounts.$STEP
 }
 
 initial_step() {
