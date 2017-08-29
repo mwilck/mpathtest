@@ -712,16 +712,11 @@ SLAVES="$(get_slaves_rec $DEVNO)"
 #cat $TMPD/udev_prep.log
 msg 2 new slaves: "$SLAVES"
 
-#for slv in $SLAVES; do
-#    msg 2 symlinks for $slv:
-#    for sl in $(get_symlinks $(get_dmdev $slv)); do
-#	ls -l /dev/$sl
-#    done
-#done
+get_bdev_symlinks >$TMPD/symlinks-orig
+msg 4 "symlinks:
+$(cat $TMPD/symlinks-orig)"
 
 sleep 2
-msg 2 mounted file systems: "$(grep tm${HEXPID} /proc/mounts)"
-grep tm${HEXPID} /proc/mounts
 
 for mp in ${MOUNTPOINTS[@]}; do
     grep -q /tmp/$mp /proc/mounts && continue
@@ -731,18 +726,18 @@ done
 
 msg 2 mounted file systems: "$(grep tm${HEXPID} /proc/mounts)"
 
-msg 1 hit key:
-read _a
-
-start_monitor remove-add
-
 for path in ${PATHS[@]}; do
     action remove $path
     usleep 1000
 done
 
 sleep 2
+
 multipathd show map $MPATH topology >&5
+get_bdev_symlinks >$TMPD/symlinks-remove
+msg 2 symlinks changed: "
+$(diff -u $TMPD/symlinks-orig $TMPD/symlinks-remove)"
+
 msg 2 mounted file systems: "$(grep tm${HEXPID} /proc/mounts)"
 
 for path in ${PATHS[@]}; do
@@ -752,5 +747,8 @@ done
 sleep 2
 
 multipathd show map $MPATH topology >&5
+get_bdev_symlinks >$TMPD/symlinks-readd
+msg 2 symlinks changed: "
+$(diff -u $TMPD/symlinks-orig $TMPD/symlinks-readd)"
 msg 2 mounted file systems: "$(grep tm${HEXPID} /proc/mounts)"
 
