@@ -50,6 +50,47 @@ add_to_set() {
     eval "$var[\${#$var[@]}]=\$1"
 }
 
+build_symlink_filter() {
+    local filter= p d
+    for p in ${PATHS[@]}; do
+	# hwid_to_block may fail for missing devs
+	d=$(hwid_to_block $p) || continue
+	[[ $d ]] || continue
+	case $p in
+	    scsi-*) filter="$filter|$d[0-9]*";;
+	esac
+    done
+    for p in $MPATH ${SLAVES[@]}; do
+	d=$(get_dmdev $p)
+	[[ $d ]] || continue
+	filter="$filter|${d#/dev/}"
+    done
+    echo "(${filter#|})\$"
+}
+
+get_bdev_symlinks() {
+    local link depth tgt rel id filter
+    filter="$(build_symlink_filter)"
+    msg 2 gathering symlinks with filter "$filter"
+    cd /dev
+    find . -name by-path -prune -o -name block -prune -o \
+	 -type l -xtype b -printf "%h/%f %d %l\n" | \
+	egrep "$filter" | \
+	# use depth (%d) to resolve symlink
+	while read link depth tgt; do
+	    rel=${tgt#../}
+	    while [[ $rel != $tgt && $((depth--)) -gt 1 ]]; do
+		tgt=$rel
+		rel=${tgt#../}
+	    done
+	    [[ -b $tgt ]]
+	    id=$(block_to_hwid $tgt) || true
+	    [[ $id ]] || continue
+	    echo ${link#./} $id
+	done | sort
+    cd - &>/dev/null
+}
+
 get_dmdev() {
     # arg $1: device mapper name
     [[ $1 && -b /dev/mapper/$1 ]]
