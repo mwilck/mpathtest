@@ -72,7 +72,7 @@ build_symlink_filter() {
 get_bdev_symlinks() {
     local link depth tgt rel id filter
     filter="$(build_symlink_filter)"
-    msg 2 gathering symlinks with filter "$filter"
+    msg 3 gathering symlinks with filter "$filter"
     cd /dev
     find . -name by-path -prune -o -name block -prune -o \
 	 -type l -xtype b -printf "%h/%f %d %l\n" | \
