@@ -1,4 +1,4 @@
-trap _cleanup 0
+trap _cleanup 0 INT TERM HUP
 
 # must match format in _cleanup_name
 __MAX_CLEANUP__=9999
@@ -33,7 +33,7 @@ get_cleanup_handle(){
 
 _cleanup() {
     local __clean__
-    trap - 0
+    trap - 0 TERM HUP INT
     trap - ERR
     set +eE
     if [[ ! -n "${__CLEANUP__}" || ! -d ${__CLEANUP__} ]]; then
