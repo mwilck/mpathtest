@@ -627,8 +627,8 @@ $dif"
     fi
 }
    
-SHORTOPTS=o:np:l:m:u:M:vth
-LONGOPTS='output:,parts:,lvs,mp-debug:,udev-debug:,monitor:,verbose,trace,help'
+SHORTOPTS=o:np:l:m:u:M:vqth
+LONGOPTS='output:,parts:,lvs,mp-debug:,udev-debug:,monitor:,verbose,quiet,trace,help'
 USAGE="
 usage: $ME [options] mapname
        -h|--help		print help
