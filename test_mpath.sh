@@ -570,8 +570,10 @@ prepare() {
     push_cleanup clear_parts
 
     if [[ o$NO_PARTITIONS = oyes ]]; then
-	FS_TYPES=lvm
-	create_fs $DMDEV lvm
+	if [[ $LV_TYPES ]]; then
+	    FS_TYPES=lvm
+	    create_fs $DMDEV lvm
+	fi
     else
 	create_parts $DMDEV $DEVSZ_MiB $FS_TYPES
 	create_filesystems $MPATH $FS_TYPES
@@ -712,7 +714,6 @@ done
 [[ $# -eq 1 ]] || { usage; exit 1; }
 eval "MPATH=$1"
 
-[[ $LV_TYPES || $FS_TYPES ]]
 if [[ $LV_TYPES ]]; then
     case $FS_TYPES in
 	*lvm*) ;;
@@ -757,7 +758,6 @@ msg 3 LV_TYPES: $LV_TYPES
 prepare
 
 SLAVES="$(get_slaves_rec $DEVNO)"
-[[ -n "$SLAVES" ]]
 
 msg 2 slaves: "
 $SLAVES"
