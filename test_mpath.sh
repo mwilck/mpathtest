@@ -410,13 +410,18 @@ create_parts() {
 	end=$((sz/n))
 	for p in "$@"; do
 	    i=$((i+1))
+	    more=
 	    case $p in
-		lvm) type=ext2
-		     more="set $i LVM on"
-		     ;;
-		*) type=$p
-		   more=
-		   ;;
+		lvm)
+		    type=ext2
+		    more="set $i LVM on"
+		    ;;
+		raw)
+		    type=ext2
+		    ;;
+		*)
+		    type=$p
+		    ;;
 	    esac
 	    end=$((begin+sz/n-1))
 	    [[ $end -lt $sz ]] || end=-1
@@ -486,7 +491,8 @@ create_fs() {
     local uuid label
     
     [[ $pdev && $fs && -b $pdev ]]
-    
+    [[ $fs != raw ]] || return 0
+
     uuid=$(printf $UUID_PATTERN $HEXID $N_FS)
     [[ ! -e /dev/disk/by-uuid/$uuid ]]
 
@@ -681,8 +687,8 @@ usage: $ME [options] mapname
        -h|--help		print help
        -o|--output		output directory (default: auto)
        -n|--no-partitions	don't create partitions (ignore -p)
-       -p|--parts x,y,z		partition types (ext2, xfs, btrfs, lvm)
-       -l|--lvs x,y,z		logical volumes (ext2, xfs, btrfs, lvm)
+       -p|--parts x,y,z		partition types (ext2, xfs, btrfs, lvm, raw)
+       -l|--lvs x,y,z		logical volumes (ext2, xfs, btrfs, raw)
        -i|--iterations n	test iterations (default 1)
        -m lvl|--mp-debug lvl	set multipathd debug level
        -u lvl|--udev-debug lvl  set udev debug level
