@@ -561,7 +561,7 @@ TMPD=$(mktemp -d /tmp/$ME-XXXXXX)
 push_cleanup rm -rf "$TMPD"
 msg 1 output dir is $OUTD
 
-push_cleanup journalctl -o short-precise --since '"$STARTTIME"' '>$OUTD/journal.log'
+push_cleanup journalctl -o short-monotonic --since '"$STARTTIME"' '>$OUTD/journal.log'
 debug_multipathd on
 push_cleanup debug_multipathd off
 debug_udev on
