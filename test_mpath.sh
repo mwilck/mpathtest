@@ -138,6 +138,16 @@ block_to_devno() {
     cat /sys/class/block/$1/dev
 }
 
+block_to_dm_name() {
+    # arg $1: block device e.g. dm-1
+    cat /sys/class/block/$1/dm/name
+}
+
+block_to_dm_uuid() {
+    # arg $1: block device e.g. dm-1
+    cat /sys/class/block/$1/dm/uuid
+}
+
 sysfsdir_to_scsihost() {
     # arg $1: sysfs device dir
     local d=$1
@@ -148,7 +158,33 @@ sysfsdir_to_scsihost() {
     [[ -d $d ]]
     echo $d
 }
-    
+
+hwid_to_block() {
+    # arg $1: hwid e.g. scsi-8:0:0:3
+    case $1 in
+	scsi-*)
+	    scsi_hctl_to_block ${1#scsi-};;
+	*)
+	    msg 1 unkown hw type: $1; false;;
+    esac
+}
+
+block_to_hwid() {
+    # arg $1: block dev e.g. sdc
+    local hwid
+    hwid=$(block_to_scsi_hctl $1) || true
+    if [[ $hwid ]]; then
+	echo scsi-$hwid
+	return
+    fi
+    hwid=$(block_to_dm_uuid $1) || true
+    if [[ $hwid ]]; then
+	echo dm-uuid-$hwid
+	return
+    fi
+    msg 1 unsupported blockdev type: $1; false
+}
+
 _make_scsi_scripts() {
     # arg $1: scsi hctl e.g. 7:0:0:1
     # side effect: populates HOSTS
@@ -168,15 +204,11 @@ _make_disk_scripts() {
     # arg $1: hw id e.g. scsi-7:0:0:1
     # SCSI device names may change
     local bl bd
+    bl="\$(hwid_to_block $1)"
+    eval "bd=$bl"
     case $1 in
 	scsi-*)
-	    bl="\$(scsi_hctl_to_block ${1#scsi-})"
-	    eval "bd=$bl"
 	    _make_scsi_scripts ${1#scsi-}
-	    ;;
-	*)
-	    msg 1 unkown hw type: $1
-	    false
 	    ;;
     esac
     echo multipathd add path "$bl" "# $bd=$1" >$TMPD/mp-add-$1
