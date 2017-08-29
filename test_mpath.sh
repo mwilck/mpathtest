@@ -168,25 +168,25 @@ scsi_hctl_to_sysfsdir() {
 scsi_hctl_to_block() {
     # arg $1: hctl e.g. 7:0:0:1
     # this errors out if there are multiple entries
-    local bl=$(basename $(scsi_hctl_to_sysfsdir $1)/block/*)
+    local bl=$(basename /sys/class/scsi_device/$1/device/block/*)
     # this errors out if sysfs dir doesn't exist
-    [[ $bl != "*" ]]
+    [[ "$bl" != "*" ]] || return 1
     echo $bl
 }
 
 block_to_devno() {
     # arg $1: disk device e.g. sdc
-    cat /sys/class/block/$1/dev
+    cat /sys/class/block/$1/dev 2>/dev/null
 }
 
 block_to_dm_name() {
     # arg $1: block device e.g. dm-1
-    cat /sys/class/block/$1/dm/name
+    cat /sys/class/block/$1/dm/name 2>/dev/null
 }
 
 block_to_dm_uuid() {
     # arg $1: block device e.g. dm-1
-    cat /sys/class/block/$1/dm/uuid
+    cat /sys/class/block/$1/dm/uuid 2>/dev/null
 }
 
 sysfsdir_to_scsihost() {
