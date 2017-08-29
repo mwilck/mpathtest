@@ -20,6 +20,7 @@ set -E
 : ${MULTIPATHD_DEBUG:=0}
 : ${UDEV_DEBUG:=err}
 : ${MONITOR_OPTS:=--env}
+: ${ITERATIONS:=1}
 
 PVS=()
 LVS=()
@@ -629,8 +630,50 @@ $dif"
     fi
 }
    
-SHORTOPTS=o:np:l:m:u:M:vqth
-LONGOPTS='output:,parts:,lvs,mp-debug:,udev-debug:,monitor:,verbose,quiet,trace,help'
+test_remove_add() {
+
+    for path in ${PATHS[@]}; do
+	action remove $path
+	usleep 1000
+    done
+
+    sleep 2
+    
+    new_step
+    
+    for path in ${PATHS[@]}; do
+	action add $path
+	usleep 1000
+    done
+    sleep 2
+
+    new_step
+
+}
+
+test_offline_online() {
+
+    for path in ${PATHS[@]}; do
+	action offline $path
+	usleep 1000
+    done
+
+    sleep 2
+    
+    new_step
+    
+    for path in ${PATHS[@]}; do
+	action online $path
+	usleep 1000
+    done
+    sleep 2
+
+    new_step
+
+}
+
+SHORTOPTS=o:np:l:i:m:u:M:vqth
+LONGOPTS='output:,parts:,lvs,iterations:,mp-debug:,udev-debug:,monitor:,verbose,quiet,trace,help'
 USAGE="
 usage: $ME [options] mapname
        -h|--help		print help
@@ -638,6 +681,7 @@ usage: $ME [options] mapname
        -n|--no-partitions	don't create partitions (ignore -p)
        -p|--parts x,y,z		partition types (ext2, xfs, btrfs, lvm)
        -l|--lvs x,y,z		logical volumes (ext2, xfs, btrfs, lvm)
+       -i|--iterations n	test iterations (default 1)
        -m lvl|--mp-debug lvl	set multipathd debug level
        -u lvl|--udev-debug lvl  set udev debug level
        -M opts|--monitor opts   set udev monitor options e.g. \"k,u,p\" or \"off\"
@@ -677,6 +721,10 @@ while [[ $# -gt 0 ]]; do
 	-l|--lvs)
 	    shift
 	    eval "LV_TYPES=${1//,/ }"
+	    ;;
+	-i|--iterations)
+	    shift
+	    eval "ITERATIONS=$1"
 	    ;;
 	-m|--mp-debug)
 	    shift
@@ -768,19 +816,7 @@ sleep 2
 
 new_step
 
-for path in ${PATHS[@]}; do
-    action remove $path
-    usleep 1000
+while [[ $((ITERATIONS--)) -gt 0 ]]; do
+    test_remove_add
+    test_offline_online
 done
-
-sleep 2
-
-new_step
-
-for path in ${PATHS[@]}; do
-    action add $path
-    usleep 1000
-done
-sleep 2
-
-new_step
