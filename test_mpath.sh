@@ -19,6 +19,7 @@ set -E
 # debug levels for multipathd (0-5) and udev (err, info, debug)
 : ${MULTIPATHD_DEBUG:=0}
 : ${UDEV_DEBUG:=err}
+: ${MONITOR_OPTS:=--env}
 
 PVS=()
 LVS=()
@@ -206,10 +207,25 @@ action() {
     source $script
 }
 
+set_monitor_opts() {
+    # arg $1: set of udev monitor options, comma separated, or "off"
+    MONITOR_OPTS=
+    [[ $1 != off ]] || return 0
+    set -- ${1//,/ }
+    while [[ $# -gt 0 ]]; do
+	if [[ ${#1} -eq 1 ]]; then
+	    MONITOR_OPTS="$MONITOR_OPTS -$1"
+	else
+	    MONITOR_OPTS="$MONITOR_OPTS --$1"
+	fi
+	shift
+    done
+}
+
 create_monitor_service() {
     local serv=/etc/systemd/system/tm-udev-monitor@.service
     [[ ! -f $serv ]] || return 0
-    cat >$serv <<\EOF
+    cat >$serv <<EOF
 [Unit]
 Description=Udev monitor for multipath test
 Requires=systemd-udevd.service
@@ -217,11 +233,12 @@ After=systemd-udevd.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/udevadm monitor -s %i --env
+ExecStart=/usr/bin/udevadm monitor -s %i $MONITOR_OPTS
 
 [Install]
 WantedBy=multi-user.target
 EOF
+    push_cleanup rm -f $serv
 }
 
 stop_monitor() {
@@ -229,8 +246,10 @@ stop_monitor() {
 }
 
 start_monitor() {
+    [[ $MONITOR_OPTS ]] || return 0
     create_monitor_service
     push_cleanup stop_monitor
+    msg 3 starting udev monitor, options $MONITOR_OPTS
     systemctl start tm-udev-monitor@block.service
 }
 
@@ -457,8 +476,8 @@ prepare() {
     push_cleanup cleanup_paths
 }
 
-SHORTOPTS=o:np:l:m:u:vth
-LONGOPTS='output:,parts:,lvs,mp-debug:,udev-debug:,verbose,trace,help'
+SHORTOPTS=o:np:l:m:u:M:vth
+LONGOPTS='output:,parts:,lvs,mp-debug:,udev-debug:,monitor:,verbose,trace,help'
 USAGE="
 usage: $ME [options] mapname
        -h|--help		print help
@@ -468,6 +487,7 @@ usage: $ME [options] mapname
        -l|--lvs x,y,z		logical volumes (ext2, xfs, btrfs, lvm)
        -m lvl|--mp-debug lvl	set multipathd debug level
        -u lvl|--udev-debug lvl  set udev debug level
+       -M opts|--monitor opts   set udev monitor options e.g. \"k,u,p\" or \"off\"
        -q|--quiet	   	decrease verbose level for script
        -v|--verbose 	   	increase verbose level for script
        -t|--trace	   	trace this script
@@ -512,6 +532,10 @@ while [[ $# -gt 0 ]]; do
 	-u|--udev-debug)
 	    shift
 	    eval "UDEV_DEBUG=$1"
+	    ;;
+	-M|--monitor)
+	    shift
+	    eval "set_monitor_opts $1"
 	    ;;
 	-v|--verbose)
 	    : $((++DEBUGLVL))
