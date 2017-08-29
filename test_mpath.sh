@@ -29,6 +29,7 @@ HEXPID=$(printf %04x $$)
 N_PARTS=0
 N_FS=0
 N_LVS=0
+STEP=0
 
 timestamp() {
     local x=$(date +%H:%M:%S.%N)
@@ -579,6 +580,51 @@ prepare() {
     push_cleanup cleanup_paths
 }
 
+write_state() {
+    get_path_state $MPATH >$OUTD/paths.$STEP
+    get_bdev_symlinks >$OUTD/symlinks.$STEP
+    grep tm${HEXPID} /proc/mounts | sort >$OUTD/mounts.$STEP
+}
+
+initial_step() {
+
+    write_state
+    msg 3 "paths:
+$(cat $OUTD/paths.1)"
+    msg 4 "symlinks:
+$(cat $OUTD/symlinks.1)"
+    msg 3 "mounts:
+$(cat $OUTD/mounts.1)"
+}
+
+new_step() {
+    local dif
+
+    if [[ $((++STEP)) -eq 1 ]]; then
+	initial_step
+	return
+    fi
+
+    write_state
+    msg 3 "paths after step $STEP:
+$(cat $OUTD/paths.$STEP)"
+
+    dif="$(diff -u $OUTD/symlinks.1 $OUTD/symlinks.$STEP)" || true
+    if [[ $dif ]]; then
+	msg 1 ERROR: symlink diffs in step $STEP: "
+$dif"
+    else
+	msg 1 PASS: no symlink diffs in step $STEP
+    fi
+    dif="$(diff -u $OUTD/mounts.1 $OUTD/mounts.$STEP)" || true
+    if [[ $dif ]]; then
+	msg 1 ERROR: mount diffs in step $STEP: "
+$dif"
+    else
+	msg 1 PASS: no mount diffs in step $STEP
+    fi
+}
+   
 SHORTOPTS=o:np:l:m:u:M:vth
 LONGOPTS='output:,parts:,lvs,mp-debug:,udev-debug:,monitor:,verbose,trace,help'
 USAGE="
@@ -713,23 +759,12 @@ prepare
 SLAVES="$(get_slaves_rec $DEVNO)"
 [[ -n "$SLAVES" ]]
 
-#msg 2 monitor output:
-#cat $TMPD/udev_prep.log
-msg 2 new slaves: "$SLAVES"
-
-get_bdev_symlinks >$TMPD/symlinks-orig
-msg 4 "symlinks:
-$(cat $TMPD/symlinks-orig)"
+msg 2 slaves: "
+$SLAVES"
 
 sleep 2
 
-for mp in ${MOUNTPOINTS[@]}; do
-    grep -q /tmp/$mp /proc/mounts && continue
-    msg 2 manually mounting $mp
-    systemctl start tmp-$mp.mount
-done
-
-msg 2 mounted file systems: "$(grep tm${HEXPID} /proc/mounts)"
+new_step
 
 for path in ${PATHS[@]}; do
     action remove $path
@@ -738,12 +773,7 @@ done
 
 sleep 2
 
-multipathd show map $MPATH topology >&5
-get_bdev_symlinks >$TMPD/symlinks-remove
-msg 2 symlinks changed: "
-$(diff -u $TMPD/symlinks-orig $TMPD/symlinks-remove)"
-
-msg 2 mounted file systems: "$(grep tm${HEXPID} /proc/mounts)"
+new_step
 
 for path in ${PATHS[@]}; do
     action add $path
@@ -751,9 +781,4 @@ for path in ${PATHS[@]}; do
 done
 sleep 2
 
-multipathd show map $MPATH topology >&5
-get_bdev_symlinks >$TMPD/symlinks-readd
-msg 2 symlinks changed: "
-$(diff -u $TMPD/symlinks-orig $TMPD/symlinks-readd)"
-msg 2 mounted file systems: "$(grep tm${HEXPID} /proc/mounts)"
-
+new_step
