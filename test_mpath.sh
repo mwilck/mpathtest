@@ -212,18 +212,27 @@ hwid_to_block() {
 
 block_to_hwid() {
     # arg $1: block dev e.g. sdc
-    local hwid
+    local hwid parent
     hwid=$(block_to_scsi_hctl $1) || true
     if [[ $hwid ]]; then
 	echo scsi-$hwid
-	return
+	return 0
     fi
-    hwid=$(block_to_dm_uuid $1) || true
+    hwid=$(block_to_dm_name $1) || true
     if [[ $hwid ]]; then
-	echo dm-uuid-$hwid
-	return
+	echo dm-name-$hwid
+	return 0
     fi
-    msg 1 unsupported blockdev type: $1; false
+    if [[ -e /sys/class/block/$1/partition ]]; then
+	read part </sys/class/block/$1/partition
+	parent=$(basename $(dirname $(readlink /sys/class/block/$1)))
+	hwid=$(block_to_hwid $parent)
+	if [[ $hwid ]]; then
+	    echo $hwid-part$part
+	    return 0
+	fi
+    fi
+    return 1
 }
 
 _make_scsi_scripts() {
@@ -250,6 +259,9 @@ _make_disk_scripts() {
     case $1 in
 	scsi-*)
 	    _make_scsi_scripts ${1#scsi-}
+	    ;;
+	*)
+	    msg 1 unsupported blockdev type: $1; false
 	    ;;
     esac
     echo multipathd add path "$bl" "# $bd=$1" >$TMPD/mp-add-$1
