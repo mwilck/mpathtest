@@ -347,8 +347,8 @@ $pt"
 	msg 1 error in parted, not all partitions were created; false
     }
 
-    kpartx -a -p -part $dev 
-
+    kpartx -a -p -part $dev
+    push_cleanup kpartx -d $dev
 }
 
 fstab_entry() {
