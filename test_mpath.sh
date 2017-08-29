@@ -632,6 +632,7 @@ $dif"
    
 test_remove_add() {
 
+    msg 2 starting test_remove_add
     for path in ${PATHS[@]}; do
 	action remove $path
 	usleep 1000
@@ -653,6 +654,7 @@ test_remove_add() {
 
 test_offline_online() {
 
+    msg 2 starting test_offline_online
     for path in ${PATHS[@]}; do
 	action offline $path
 	usleep 1000
