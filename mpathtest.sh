@@ -7,8 +7,7 @@ MYDIR=$(cd "$(dirname $0)" && pwd)
 set -E
 
 # mpath name
-#: ${MPATH:=3600601600a3020002282d7e2c5a6e411}
-: ${MPATH:=}
+MPATHS=()
 : ${DEBUGLVL:=2}
 : ${UUID_PATTERN:=54f41f67-bd36-%s-%04x-0966d6a9c810}
 : ${VG:=tm_vg}
@@ -63,7 +62,7 @@ build_symlink_filter() {
 	    scsi-*) filter="$filter|$d[0-9]*";;
 	esac
     done
-    for p in $MPATH ${SLAVES[@]}; do
+    for p in ${MPATHS[@]} ${SLAVES[@]}; do
 	d=$(dm_name_to_devnode $p)
 	[[ $d ]] || continue
 	filter="$filter|${d#/dev/}"
@@ -582,19 +581,17 @@ cleanup_paths() {
     done
 }
 
-prepare() {
-    local dev devsz
+prepare_mpath() {
+    # arg $1: mpath name
+    local dev
 
-    make_disk_scripts ${PATHS[@]}
+    [[ $1 ]]
+    dev=$(dm_name_to_devnode $1)
+    [[ $dev && -b $dev ]]
 
-    delete_slaves $MPATH
-
-    start_monitor
-
-    dev=$(dm_name_to_devnode $MPATH)
     msg 3 wiping partition table on $dev
     sgdisk --zap-all $dev &>/dev/null
-    push_cleanup clear_parts $MPATH
+    push_cleanup clear_parts $1
 
     if [[ o$NO_PARTITIONS = oyes ]]; then
 	if [[ $LV_TYPES ]]; then
@@ -605,14 +602,33 @@ prepare() {
 	devsz=$(($(blockdev --getsz $dev)/2048))
 	[[ $devsz -gt 1 ]]
 	create_parts $dev $devsz $FS_TYPES
-	create_filesystems $MPATH $FS_TYPES
+	create_filesystems $1 $FS_TYPES
     fi
+}
+
+prepare() {
+    local dev devsz mp
+
+    make_disk_scripts ${PATHS[@]}
+
+    for mp in ${MPATHS[@]}; do
+	delete_slaves $mp
+    done
+
+    start_monitor
+    for mp in ${MPATHS[@]}; do
+	prepare_mpath $mp
+    done
+
     create_lvs $LV_TYPES
     push_cleanup cleanup_paths
 }
 
 write_state() {
-    get_path_state $MPATH >$OUTD/paths.$STEP
+    local mp
+    for mp in ${MPATHS[@]}; do
+	get_path_state $mp
+    done | sort >$OUTD/paths.$STEP
     get_bdev_symlinks >$OUTD/symlinks.$STEP
     grep tm${HEXID} /proc/mounts | sort >$OUTD/mounts.$STEP
 }
@@ -785,7 +801,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 [[ $# -eq 1 ]] || { usage; exit 1; }
-eval "MPATH=$1"
+eval "MPATHS=($@)"
 
 if [[ $LV_TYPES ]]; then
     case $FS_TYPES in
@@ -843,16 +859,32 @@ fi
 [[ $TESTS ]]
 msg 2 Tests to be run: $TESTS
 
-PATHS=($(get_path_list "$MPATH"))
+PATHS=()
+set_PATHS() {
+    local mp
+    for mp in "${MPATHS[@]}"; do
+	PATHS=("${PATHS[@]} $(get_path_list "$mp")")
+    done
+}
+
+set_PATHS
 [[ ${#PATHS[@]} -gt 0 ]]
 
-msg 2 Checking mpath $MPATH with ${#PATHS[@]} paths: ${PATHS[@]}
+msg 2 multipath maps: ${MPATHS[@]}
+msg 2 Paths: ${PATHS[@]}
 msg 3 FS_TYPES: $FS_TYPES
 msg 3 LV_TYPES: $LV_TYPES
 
 prepare
 
-SLAVES="$(get_slaves_rec $MPATH)"
+SLAVES=
+set_SLAVES() {
+    local mp
+    for mp in "${MPATHS[@]}"; do
+	SLAVES="$SLAVES $(get_slaves_rec "$mp")"
+    done
+}
+set_SLAVES
 
 msg 2 slaves: "
 $SLAVES"
