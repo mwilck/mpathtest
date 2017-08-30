@@ -463,10 +463,11 @@ $pt"
 }
 
 clear_parts() {
+    # arg $1: dm device name
     # Make sure no symlinks to paths remain after run
     # these may mess up results in next run
     local p b
-    sgdisk --zap-all $DMDEV
+    sgdisk --zap-all /dev/mapper/$1
     for p in ${PATHS[@]}; do
 	b=$(hwid_to_block $p) || true
 	[[ $b && -b /dev/$b ]] || continue
@@ -590,7 +591,7 @@ prepare() {
 
     msg 3 wiping partition table on $DMDEV
     sgdisk --zap-all $DMDEV &>/dev/null
-    push_cleanup clear_parts
+    push_cleanup clear_parts $MPATH
 
     if [[ o$NO_PARTITIONS = oyes ]]; then
 	if [[ $LV_TYPES ]]; then
