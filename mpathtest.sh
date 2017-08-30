@@ -389,17 +389,19 @@ debug_udev() {
 }
 
 delete_slaves() {
-    # arg $1: dm device /dev/dm-$X
-    # arg $2: dm device name
-    local slaves slv
-    [[ $1 && $2 && -b $1 ]]
-    slaves=$(get_slaves $2)
+    # arg $1: dm device name
+    local slaves slv dev
+
+    [[ $1 ]]
+    dev=$(dm_name_to_devnode $1)
+    [[ $dev && -b $dev ]]
+    slaves=$(get_slaves $1)
     for slv in $slaves; do
 	msg 2 old slave $slv will be deleted
     done
-    
-    kpartx -d $1
-    slaves=$(get_slaves $2)
+
+    kpartx -d $dev
+    slaves=$(get_slaves $1)
     for slv in $slaves; do
 	dmsetup remove /dev/mapper/$slv
     done
@@ -581,27 +583,28 @@ cleanup_paths() {
 }
 
 prepare() {
-    local devsz
+    local dev devsz
 
     make_disk_scripts ${PATHS[@]}
 
-    delete_slaves $DMDEV $MPATH
+    delete_slaves $MPATH
 
     start_monitor
 
-    msg 3 wiping partition table on $DMDEV
-    sgdisk --zap-all $DMDEV &>/dev/null
+    dev=$(dm_name_to_devnode $MPATH)
+    msg 3 wiping partition table on $dev
+    sgdisk --zap-all $dev &>/dev/null
     push_cleanup clear_parts $MPATH
 
     if [[ o$NO_PARTITIONS = oyes ]]; then
 	if [[ $LV_TYPES ]]; then
 	    FS_TYPES=lvm
-	    create_fs $DMDEV lvm
+	    create_fs $dev lvm
 	fi
     else
-	devsz=$(($(blockdev --getsz $DMDEV)/2048))
+	devsz=$(($(blockdev --getsz $dev)/2048))
 	[[ $devsz -gt 1 ]]
-	create_parts $DMDEV $devsz $FS_TYPES
+	create_parts $dev $devsz $FS_TYPES
 	create_filesystems $MPATH $FS_TYPES
     fi
     create_lvs $LV_TYPES
@@ -839,9 +842,6 @@ else
 fi
 [[ $TESTS ]]
 msg 2 Tests to be run: $TESTS
-
-DMDEV=$(dm_name_to_devnode $MPATH)
-[[ -b $DMDEV ]]
 
 PATHS=($(get_path_list "$MPATH"))
 [[ ${#PATHS[@]} -gt 0 ]]
