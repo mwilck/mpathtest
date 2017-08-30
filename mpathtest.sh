@@ -636,50 +636,6 @@ $dif"
     fi
 }
    
-test_remove_add() {
-
-    msg 2 starting test_remove_add
-    for path in ${PATHS[@]}; do
-	action remove $path
-	usleep 1000
-    done
-
-    sleep 2
-    
-    new_step
-    
-    for path in ${PATHS[@]}; do
-	action add $path
-	usleep 1000
-    done
-    sleep 2
-
-    new_step
-
-}
-
-test_offline_online() {
-
-    msg 2 starting test_offline_online
-    for path in ${PATHS[@]}; do
-	action offline $path
-	usleep 1000
-    done
-
-    sleep 2
-    
-    new_step
-    
-    for path in ${PATHS[@]}; do
-	action online $path
-	usleep 1000
-    done
-    sleep 2
-
-    new_step
-
-}
-
 SHORTOPTS=o:np:l:i:m:u:M:vqth
 LONGOPTS='output:,parts:,lvs,iterations:,mp-debug:,udev-debug:,monitor:,verbose,quiet,trace,help'
 USAGE="
