@@ -21,6 +21,7 @@ set -E
 : ${UDEV_DEBUG:=err}
 : ${MONITOR_OPTS:=--env}
 : ${ITERATIONS:=1}
+: ${TESTS:=}
 
 PVS=()
 LVS=()
@@ -635,7 +636,36 @@ $dif"
 	rm -f $OUTD/mounts.$STEP
     fi
 }
-   
+
+safe_filename() {
+    # arg $1: filename
+    echo "$1" | tr -s "'"'\\"/&;$?*[:cntrl:][:space:]' _
+}
+
+run_test() {
+    # arg $1: test file and test args, separated by comma
+    # file should provide a function named like the file
+    local safe test
+
+    set -- ${1//,/ }
+    test=$(basename "$1")
+    shift
+    safe=$(safe_filename $test))
+    [[ -e $TMPD/__test_loaded_$safe ]] || {
+	source "$1"
+	touch $TMPD/__test_loaded_$safe
+    }
+    eval "$test $@"
+}
+
+run_tests() {
+    local test
+
+    for test in  "${TESTS[@]}"; do
+	run_test $test
+    done
+}
+
 SHORTOPTS=o:np:l:i:m:u:M:vqth
 LONGOPTS='output:,parts:,lvs,iterations:,mp-debug:,udev-debug:,monitor:,verbose,quiet,trace,help'
 USAGE="
@@ -754,6 +784,17 @@ debug_multipathd on
 push_cleanup debug_multipathd off
 debug_udev on
 push_cleanup debug_udev off
+
+if [[ $TESTS ]]; then
+    for _t in $TESTS; do
+	# error if a test doesn't exist
+	[[ -f $_t ]]
+    done
+else
+    TESTS=$MYDIR/test_*
+    [[ $TESTS != "$MYDIR/test_*" ]]
+fi
+[[ $TESTS ]]
 
 DMDEV=$(get_dmdev $MPATH)
 DMNAME=${DMDEV#/dev/}
