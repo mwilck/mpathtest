@@ -64,7 +64,7 @@ build_symlink_filter() {
 	esac
     done
     for p in $MPATH ${SLAVES[@]}; do
-	d=$(get_dmdev $p)
+	d=$(dm_name_to_devnode $p)
 	[[ $d ]] || continue
 	filter="$filter|${d#/dev/}"
     done
@@ -102,16 +102,19 @@ get_bdev_symlinks() {
     cd - &>/dev/null
 }
 
-get_dmdev() {
+dm_name_to_devnode() {
     # arg $1: device mapper name
     [[ $1 && -b /dev/mapper/$1 ]]
     readlink -f /dev/mapper/$1
 }
 
-get_devno() {
+devnode_to_devno() {
     # arg $1: dm device
+    local d
     [[ $1 && -b $1 ]]
-    dmsetup info -c -o major,minor --noheadings $1
+    read d </sys/class/block/${1#/dev/}/dev
+    [[ $d ]]
+    echo $d
 }
 
 get_path_list() {
@@ -142,20 +145,22 @@ get_symlinks() {
 }
 
 get_slaves() {
-    # arg $1: dm device in major:minor format
+    # arg $1: dm device name
+    local devno
     [[ $1 ]]
-    dmsetup table | sed -n /" $1 "'/s/: .*//p'
+    devno=$(devnode_to_devno $(dm_name_to_devnode $1))
+    [[ $devno ]]
+    dmsetup table | sed -n /" $devno "'/s/: .*//p'
 }
 
 get_slaves_rec() {
-    # arg $1: dm device in major:minor format
-    local slaves slv dn children=""
+    # arg $1: dm device name
+    local slaves slv children=""
     [[ $1 ]]
     slaves="$(get_slaves $1)"
     for slv in $slaves; do
-	dn=$(get_devno /dev/mapper/$slv)
 	children="$children
-$(get_slaves_rec $dn)"
+$(get_slaves_rec $slv)"
     done
     echo "$slaves$children"
 }
@@ -385,7 +390,7 @@ debug_udev() {
 
 delete_slaves() {
     # arg $1: dm device /dev/dm-$X
-    # arg $2: dm device in major:minor format
+    # arg $2: dm device name
     local slaves slv
     [[ $1 && $2 && -b $1 ]]
     slaves=$(get_slaves $2)
@@ -577,7 +582,7 @@ cleanup_paths() {
 prepare() {
     make_disk_scripts ${PATHS[@]}
 
-    delete_slaves $DMDEV $DEVNO
+    delete_slaves $DMDEV $MPATH
 
     start_monitor
 
@@ -830,9 +835,7 @@ fi
 [[ $TESTS ]]
 msg 2 Tests to be run: $TESTS
 
-DMDEV=$(get_dmdev $MPATH)
-DMNAME=${DMDEV#/dev/}
-DEVNO=$(get_devno $DMDEV)
+DMDEV=$(dm_name_to_devnode $MPATH)
 [[ -b $DMDEV ]]
 DEVSZ_MiB=$(($(blockdev --getsz /dev/dm-2)/2048))
 [[ $DEVSZ_MiB -gt 1 ]]
@@ -846,7 +849,7 @@ msg 3 LV_TYPES: $LV_TYPES
 
 prepare
 
-SLAVES="$(get_slaves_rec $DEVNO)"
+SLAVES="$(get_slaves_rec $MPATH)"
 
 msg 2 slaves: "
 $SLAVES"
