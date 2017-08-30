@@ -1,6 +1,5 @@
 test_offline_online() {
 
-    msg 2 starting test_offline_online
     for path in ${PATHS[@]}; do
 	action offline $path
 	usleep 1000

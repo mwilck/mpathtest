@@ -639,35 +639,38 @@ $dif"
 
 safe_filename() {
     # arg $1: filename
-    echo "$1" | tr -s "'"'\\"/&;$?*[:cntrl:][:space:]' _
+    echo -n "$1" | tr -s "'"'\\"/&;$?*[:cntrl:][:space:]' _
 }
 
 run_test() {
     # arg $1: test file and test args, separated by comma
     # file should provide a function named like the file
-    local safe test
+    local safe file test
 
     set -- ${1//,/ }
-    test=$(basename "$1")
+    file=$1
+    test=$(basename "$file")
     shift
-    safe=$(safe_filename $test))
+    safe=$(safe_filename $test)
     [[ -e $TMPD/__test_loaded_$safe ]] || {
-	source "$1"
+	msg 3 loading $file
+	source "$file"
 	touch $TMPD/__test_loaded_$safe
     }
+    msg 2 Running test $test
     eval "$test $@"
 }
 
 run_tests() {
     local test
 
-    for test in  "${TESTS[@]}"; do
+    for test in $TESTS; do
 	run_test $test
     done
 }
 
-SHORTOPTS=o:np:l:i:m:u:M:vqth
-LONGOPTS='output:,parts:,lvs,iterations:,mp-debug:,udev-debug:,monitor:,verbose,quiet,trace,help'
+SHORTOPTS=o:np:l:t:i:m:u:M:vqTh
+LONGOPTS='output:,parts:,lvs,test:,iterations:,mp-debug:,udev-debug:,monitor:,verbose,quiet,trace,help'
 USAGE="
 usage: $ME [options] mapname
        -h|--help		print help
@@ -675,13 +678,14 @@ usage: $ME [options] mapname
        -n|--no-partitions	don't create partitions (ignore -p)
        -p|--parts x,y,z		partition types (ext2, xfs, btrfs, lvm, raw)
        -l|--lvs x,y,z		logical volumes (ext2, xfs, btrfs, raw)
+       -t|--test file,args	test case to run, with arguments
        -i|--iterations n	test iterations (default 1)
        -m lvl|--mp-debug lvl	set multipathd debug level
        -u lvl|--udev-debug lvl  set udev debug level
        -M opts|--monitor opts   set udev monitor options e.g. \"k,u,p\" or \"off\"
        -q|--quiet	   	decrease verbose level for script
        -v|--verbose 	   	increase verbose level for script
-       -t|--trace	   	trace this script
+       -T|--trace	   	trace this script
 "
 
 usage() {
@@ -716,6 +720,10 @@ while [[ $# -gt 0 ]]; do
 	    shift
 	    eval "LV_TYPES=${1//,/ }"
 	    ;;
+	-t|--test)
+	    shift
+	    eval "TESTS=\"\$TESTS \"$1"
+	    ;;
 	-i|--iterations)
 	    shift
 	    eval "ITERATIONS=$1"
@@ -738,7 +746,7 @@ while [[ $# -gt 0 ]]; do
 	-q|--quiet)
 	    : $((--DEBUGLVL))
 	    ;;
-	-t|--trace)
+	-T|--trace)
 	    TRACE=yes
 	    ;;
 	--)
@@ -791,10 +799,28 @@ if [[ $TESTS ]]; then
 	[[ -f $_t ]]
     done
 else
-    TESTS=$MYDIR/test_*
-    [[ $TESTS != "$MYDIR/test_*" ]]
+    for _t in test_*; do
+	case $_t in
+	    *\*)
+		# Nothing found
+		break
+		;;
+	    *~)
+		continue
+		;;
+	    *)
+		# Test must define a function that is equal to the file name
+		grep -q "^$(basename $_t)() {" $_t || {
+		    msg 1 ERROR: $_t is not a valid test case
+		    continue
+		}
+		TESTS="$TESTS $_t"
+		;;
+	esac
+    done
 fi
 [[ $TESTS ]]
+msg 2 Tests to be run: $TESTS
 
 DMDEV=$(get_dmdev $MPATH)
 DMNAME=${DMDEV#/dev/}
@@ -822,6 +848,5 @@ sleep 2
 new_step
 
 while [[ $((ITERATIONS--)) -gt 0 ]]; do
-    test_remove_add
-    test_offline_online
+    run_tests
 done
