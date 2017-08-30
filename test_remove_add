@@ -1,0 +1,21 @@
+test_remove_add() {
+
+    msg 2 starting test_remove_add
+    for path in ${PATHS[@]}; do
+	action remove $path
+	usleep 1000
+    done
+
+    sleep 2
+    
+    new_step
+    
+    for path in ${PATHS[@]}; do
+	action add $path
+	usleep 1000
+    done
+    sleep 2
+
+    new_step
+
+}
