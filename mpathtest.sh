@@ -71,14 +71,22 @@ build_symlink_filter() {
     echo "(${filter#|})\$"
 }
 
+# This filter makes sure that we look only at devices that matter
+# for our test.
+BDEV_FILTER=
 get_bdev_symlinks() {
-    local link depth tgt rel id filter
-    filter="$(build_symlink_filter)"
-    msg 3 gathering symlinks with filter "$filter"
+    local link depth tgt rel id
+
+    # We do not recalculate BDEV_FILTER between tests.
+    # While block device names aren't persistent, we assume that
+    # the SET of devices is. This allows us to see dangling links
+    # to devices which may have been removed.
+    [[ $BDEV_FILTER ]] || BDEV_FILTER="$(build_symlink_filter)"
+    msg 3 gathering symlinks with filter "$BDEV_FILTER"
     cd /dev
     find . -name by-path -prune -o -name block -prune -o \
 	 -type l -xtype b -printf "%h/%f %d %l\n" | \
-	egrep "$filter" | \
+	egrep "$BDEV_FILTER" | \
 	# use depth (%d) to resolve symlink
 	while read link depth tgt; do
 	    rel=${tgt#../}
