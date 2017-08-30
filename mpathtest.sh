@@ -559,7 +559,7 @@ create_lvs() {
 
     run_lvm vgcreate -q $VG "${PVS[@]}"
     push_cleanup vgremove -q -f $VG
-    
+
     while [[ $# -gt 0 ]]; do
 	N_FS=$((N_FS+1))
 	name=lv_${N_FS}_$1
@@ -580,6 +580,8 @@ cleanup_paths() {
 }
 
 prepare() {
+    local devsz
+
     make_disk_scripts ${PATHS[@]}
 
     delete_slaves $DMDEV $MPATH
@@ -596,7 +598,9 @@ prepare() {
 	    create_fs $DMDEV lvm
 	fi
     else
-	create_parts $DMDEV $DEVSZ_MiB $FS_TYPES
+	devsz=$(($(blockdev --getsz $DMDEV)/2048))
+	[[ $devsz -gt 1 ]]
+	create_parts $DMDEV $devsz $FS_TYPES
 	create_filesystems $MPATH $FS_TYPES
     fi
     create_lvs $LV_TYPES
@@ -837,8 +841,6 @@ msg 2 Tests to be run: $TESTS
 
 DMDEV=$(dm_name_to_devnode $MPATH)
 [[ -b $DMDEV ]]
-DEVSZ_MiB=$(($(blockdev --getsz /dev/dm-2)/2048))
-[[ $DEVSZ_MiB -gt 1 ]]
 
 PATHS=($(get_path_list "$MPATH"))
 [[ ${#PATHS[@]} -gt 0 ]]
