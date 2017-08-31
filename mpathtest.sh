@@ -862,6 +862,9 @@ while [[ $# -gt 0 ]]; do
 done
 if [[ $# -ge 1 ]]; then
     eval "MPATHS=($@)"
+    for _mp in ${MPATHS[@]}; do
+	[[ "$(dmsetup table $_mp | cut -d" " -f 3)" = multipath ]]
+    done
 else
     msg 2 no mpaths specified, checking for free ones
     MPATHS=($(get_free_multipath_maps))
