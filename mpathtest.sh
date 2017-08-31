@@ -539,7 +539,14 @@ fstab_entry() {
     # arg $3: uuid
     mkdir -p "/tmp/$2"
     push_cleanup rmdir "/tmp/$2"
-    push_cleanup umount -l "/tmp/$2"
+    case $1 in
+	swap)
+	    push_cleanup swapoff UUID=$uuid
+	    ;;
+	*)
+	    push_cleanup umount -l "/tmp/$2"
+	    ;;
+    esac
     MOUNTPOINTS[${#MOUNTPOINTS[@]}]="$2"
     push_cleanup systemctl daemon-reload
     if [[ $((${#MOUNTPOINTS[@]} % 2)) -eq 0 ]]; then
