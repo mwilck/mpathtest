@@ -917,15 +917,18 @@ PATHS=()
 set_PATHS() {
     local mp
     for mp in "${MPATHS[@]}"; do
-	PATHS=("${PATHS[@]} $(get_path_list "$mp")")
+	PATHS=("${PATHS[@]}" $(get_path_list "$mp"))
     done
+    # https://stackoverflow.com/questions/7442417/how-to-sort-an-array-in-bash
+    IFS=$'\n' PATHS=($(sort <<<"${PATHS[*]}"))
+    unset IFS
 }
 
 set_PATHS
 [[ ${#PATHS[@]} -gt 0 ]]
 
-msg 2 multipath maps: ${MPATHS[@]}
-msg 2 Paths: ${PATHS[@]}
+msg 2 multipath maps "(${#MPATHS[@]})": ${MPATHS[@]}
+msg 2 Paths: "(${#PATHS[@]})" ${PATHS[@]}
 msg 3 FS_TYPES: $FS_TYPES
 msg 3 LV_TYPES: $LV_TYPES
 
