@@ -27,5 +27,5 @@ test_remove_offline() {
     done
 
     sleep 2
-    new_step
+    new_step -k
 }

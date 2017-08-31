@@ -854,7 +854,11 @@ $dif"
 }
 
 new_step() {
-    local dif
+    # arg $1: -k if kernel path list must be ok
+    local dif kflag=-i
+    case $1 in
+	-k) kflag=;;
+    esac
 
     if [[ $((++STEP)) -eq 1 ]]; then
 	initial_step
@@ -865,7 +869,7 @@ new_step() {
     msg 3 "paths after step $STEP:
 $(cat $OUTD/paths.$STEP)"
 
-    check_diff -i kernel
+    check_diff $kflag kernel
     check_diff -n udevinfo
     check_diff symlinks
     check_diff mounts

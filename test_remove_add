@@ -17,6 +17,6 @@ test_remove_add() {
     done
     sleep 2
 
-    new_step
+    new_step -k
 
 }
