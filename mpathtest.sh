@@ -18,7 +18,8 @@ MPATHS=()
 # debug levels for multipathd (0-5) and udev (err, info, debug)
 : ${MULTIPATHD_DEBUG:=0}
 : ${UDEV_DEBUG:=err}
-: ${MONITOR_OPTS:=--env}
+: ${SD_DEBUG:=err}
+: ${MONITOR_OPTS:=}
 : ${ITERATIONS:=1}
 : ${TESTS:=}
 
@@ -385,6 +386,7 @@ start_monitor() {
     [[ $MONITOR_OPTS ]] || return 0
     create_monitor_service
     push_cleanup stop_monitor
+    systemctl daemon-reload
     msg 3 starting udev monitor, options $MONITOR_OPTS
     systemctl start tm-udev-monitor@block.service
 }
