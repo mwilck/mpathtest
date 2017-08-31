@@ -1045,7 +1045,7 @@ set_SLAVES() {
 }
 set_SLAVES
 
-msg 2 slaves: "
+msg 3 slaves: "
 $SLAVES"
 
 # give systemd some time
