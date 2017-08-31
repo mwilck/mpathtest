@@ -593,7 +593,7 @@ create_fs() {
 	    mkfs.btrfs -q -f -L $label -U $uuid $pdev
 	    ;;
 	lvm)
-	    run_lvm pvcreate -q -u $uuid --norestorefile $pdev
+	    run_lvm pvcreate -f -q -u $uuid --norestorefile $pdev
 	    PVS[${#PVS[@]}]=$pdev
 	    ;;
 	swap)
