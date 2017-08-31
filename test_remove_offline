@@ -1,0 +1,31 @@
+# -*- mode: shell-script -*-
+test_remove_offline() {
+    local n=${#PATHS[@]} i=0 wait=$1
+
+    while [[ $i -lt ${#PATHS[@]} ]]; do
+	if [[ $((i % 2)) -eq 0 ]]; then
+	    action remove ${PATHS[$i]}
+	else
+	    action offline ${PATHS[$i]}
+	fi
+	usleep ${wait:-1000}
+	: $((i++))
+    done
+
+    sleep 2
+    new_step
+
+    i=${#PATHS[@]}
+    while [[ $i -ge 0 ]]; do
+	if [[ $((i % 2)) -eq 0 ]]; then
+	    action add ${PATHS[$i]}
+	else
+	    action online ${PATHS[$i]}
+	fi
+	usleep ${wait:-1000}
+	: $((i--))
+    done
+
+    sleep 2
+    new_step
+}
