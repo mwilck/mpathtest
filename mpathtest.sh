@@ -40,8 +40,12 @@ timestamp() {
 msg() {
     [[ $1 -gt $DEBUGLVL ]] && return
     shift
-    echo "$*" >&2;
-    [[ ! -e /proc/self/fd/5 ]] || echo "$(timestamp) $*" >&5;
+    if [[ "$TERMINAL" ]]; then
+	echo "$(timestamp) $*" >&2
+    else
+	 echo "$*" >&2;
+	 [[ ! -e /proc/self/fd/5 ]] || echo "$(timestamp) $*" >&5
+    fi
 }
 
 add_to_set() {
@@ -753,8 +757,8 @@ run_tests() {
     done
 }
 
-SHORTOPTS=o:np:l:t:i:m:u:M:vqTh
-LONGOPTS='output:,parts:,lvs,test:,iterations:,mp-debug:,udev-debug:,monitor:,verbose,quiet,trace,help'
+SHORTOPTS=o:np:l:t:i:m:u:M:vqeTh
+LONGOPTS='output:,parts:,lvs,test:,iterations:,mp-debug:,udev-debug:,monitor:,verbose,quiet,terminal,trace,help'
 USAGE="
 usage: $ME [options] mapname [mapname ...]
        -h|--help		p
@@ -771,6 +775,7 @@ rint help
        -M opts|--monitor opts   set udev monitor options e.g. \"k,u,p\" or \"off\"
        -q|--quiet	   	decrease verbose level for script
        -v|--verbose 	   	increase verbose level for script
+       -e|--terminal		log to terminal, not log file
        -T|--trace	   	trace this script
 "
 
@@ -783,6 +788,7 @@ OPTIONS=($(getopt -s bash -o "$SHORTOPTS" --longoptions "$LONGOPTS" -- "$@"))
 set -- "${OPTIONS[@]}"
 unset OPTIONS
 
+TERMINAL=
 TRACE=
 NO_PARTITIONS=
 while [[ $# -gt 0 ]]; do
@@ -832,6 +838,9 @@ while [[ $# -gt 0 ]]; do
 	-q|--quiet)
 	    : $((--DEBUGLVL))
 	    ;;
+	-e|--terminal)
+	    TERMINAL=1
+	    ;;
 	-T|--trace)
 	    TRACE=yes
 	    ;;
@@ -863,16 +872,19 @@ if [[ $LV_TYPES ]]; then
 	*) FS_TYPES="$FS_TYPES lvm";;
     esac
 fi
+
+if [[ ! $TERMINAL ]]; then
+    exec 5>&2
+    ERR_FD=5 # for err_handler
+    exec &> >(logger --id=$$ -t $ME)
+fi
 [[ o$TRACE = oyes ]] && set -x
 
-exec 5>&2
-ERR_FD=5 # for err_handler
-
 STARTTIME=$(date +"%Y-%m-%d %H:%M:%S")
+
 : ${OUTD:="$PWD/logs-$ME-${STARTTIME//[ :]/_}"}
 mkdir -p $OUTD
 
-exec &> >(logger --id=$$ -t $ME)
 TMPD=$(mktemp -d /tmp/$ME-XXXXXX)
 
 push_cleanup rm -rf "$TMPD"
