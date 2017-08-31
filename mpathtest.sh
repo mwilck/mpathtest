@@ -145,7 +145,7 @@ get_path_list() {
 
 get_path_state() {
     # arg $1: multipath map name
-    multipathd show paths format "%m %i %d %p %t %o %T" | sed -n "s/$1 //p" | sort
+    multipathd show paths format "%m %i %t %o %T" | sed -n "s/$1 //p" | sort
 }
 
 get_symlinks() {
