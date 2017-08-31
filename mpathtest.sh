@@ -31,6 +31,7 @@ N_PARTS=0
 N_FS=0
 N_LVS=0
 STEP=0
+SWAPS=
 
 timestamp() {
     local x=$(date +%H:%M:%S.%N)
@@ -550,10 +551,10 @@ fstab_entry() {
 	    push_cleanup swapoff UUID=$uuid
 	    ;;
 	*)
+	    MOUNTPOINTS[${#MOUNTPOINTS[@]}]="$2"
 	    push_cleanup umount -l "/tmp/$2"
 	    ;;
     esac
-    MOUNTPOINTS[${#MOUNTPOINTS[@]}]="$2"
     push_cleanup systemctl daemon-reload
     if [[ $((${#MOUNTPOINTS[@]} % 2)) -eq 0 ]]; then
 	echo LABEL=$2 /tmp/$2 $1 defaults 0 0 >>/etc/fstab
@@ -605,6 +606,7 @@ create_fs() {
 	swap)
 	    fstab_entry swap $label $uuid
 	    mkswap -f -L $label -U $uuid $pdev
+	    SWAPS="$SWAPS $(readlink -f $pdev)"
 	    ;;
     esac
 }
@@ -705,9 +707,25 @@ write_state() {
     done | sort >$OUTD/paths.$STEP
     get_bdev_symlinks >$OUTD/symlinks.$STEP
     grep tm${HEXID} /proc/mounts | sort >$OUTD/mounts.$STEP
+    [[ ! $USING_SWAP ]] || \
+	tail -n +2 /proc/swaps | sort >$OUTD/swaps.$STEP
+}
+
+check_initial_state() {
+    # check the everything is set up as expected
+    local mp
+    for mp in ${MOUNTPOINTS[@]}; do
+	grep -q /tmp/$mp /proc/mounts
+	msg 2 PASS: /tmp/$mp is mounted
+    done
+    for mp in $SWAPS; do
+	grep -q ^$mp /proc/swaps
+	msg 2 PASS: swap $mp is active
+    done
 }
 
 initial_step() {
+    check_initial_state
 
     write_state
     msg 3 "paths:
@@ -716,6 +734,20 @@ $(cat $OUTD/paths.1)"
 $(cat $OUTD/symlinks.1)"
     msg 3 "mounts:
 $(cat $OUTD/mounts.1)"
+    [[ ! $USING_SWAP ]] || msg 3 "swaps:
+$(cat $OUTD/swaps.1)"
+}
+check_diff() {
+    # arg $1: basename
+    local dif
+    dif="$(diff -u $OUTD/$1.1 $OUTD/$1.$STEP)" || true
+    if [[ $dif ]]; then
+	msg 1 ERROR: $1 diffs in step $STEP: "
+$dif"
+    else
+	msg 2 PASS: no $1 diffs in step $STEP
+	rm -f $OUTD/$1.$STEP
+    fi
 }
 
 new_step() {
@@ -730,22 +762,9 @@ new_step() {
     msg 3 "paths after step $STEP:
 $(cat $OUTD/paths.$STEP)"
 
-    dif="$(diff -u $OUTD/symlinks.1 $OUTD/symlinks.$STEP)" || true
-    if [[ $dif ]]; then
-	msg 1 ERROR: symlink diffs in step $STEP: "
-$dif"
-    else
-	msg 2 PASS: no symlink diffs in step $STEP
-	rm -f $OUTD/symlinks.$STEP
-    fi
-    dif="$(diff -u $OUTD/mounts.1 $OUTD/mounts.$STEP)" || true
-    if [[ $dif ]]; then
-	msg 1 ERROR: mount diffs in step $STEP: "
-$dif"
-    else
-	msg 2 PASS: no mount diffs in step $STEP
-	rm -f $OUTD/mounts.$STEP
-    fi
+    check_diff symlinks
+    check_diff mounts
+    [[ ! $USING_SWAP ]] || check_diff swaps
 }
 
 safe_filename() {
@@ -905,6 +924,11 @@ if [[ $LV_TYPES ]]; then
 	*) FS_TYPES="$FS_TYPES lvm";;
     esac
 fi
+case "$FS_TYPES $LV_TYPES" in
+    *swap*)
+	USING_SWAP=1
+	;;
+esac
 
 if [[ ! $TERMINAL ]]; then
     exec 5>&2
