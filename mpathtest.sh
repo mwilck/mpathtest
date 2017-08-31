@@ -287,6 +287,23 @@ block_to_hwid() {
     return 1
 }
 
+kernel_path_states() {
+    local p
+    for p in ${PATHS[@]}; do
+	source $TMPD/status-$p
+    done
+}
+
+_scsi_path_state() {
+    # arg $1: scsi device hctl e.g. 7:0:0:1
+    local sd=/sys/class/scsi_device/$1/device
+    if [[ -f $sd/state ]]; then
+	echo $1: $(cat $sd/state):$(cat $sd/dh_state 2>&-)
+    else
+	echo $1: missing
+    fi
+}
+
 _make_scsi_scripts() {
     # arg $1: scsi hctl e.g. 7:0:0:1
     # side effect: populates HOSTS
@@ -295,6 +312,7 @@ _make_scsi_scripts() {
     [[ $sd && -d $sd ]] || return 0 # not a scsi device
     hctl=${1//:/ }
     host=$(sysfsdir_to_scsihost $sd)
+    echo "_scsi_path_state $1" >$TMPD/status-scsi-$1
     echo "echo offline >$sd/state" >$TMPD/offline-scsi-$1
     echo "echo running >$sd/state" >$TMPD/online-scsi-$1
     echo "echo 1 >$sd/delete" >$TMPD/remove-scsi-$1
@@ -742,6 +760,7 @@ get_udevinfo() {
 
 write_state() {
     local mp
+    kernel_path_states >$OUTD/kernel.$STEP
     for mp in ${MPATHS[@]}; do
 	get_path_state $mp
     done | sort >$OUTD/paths.$STEP
@@ -772,7 +791,10 @@ check_initial_state() {
 	    start_mount_unit /tmp/$mp
 	    if grep -q /tmp/$mp /proc/mounts; then
 		: $((WARNINGS++))
-		msg 2 WARN: /tmp/$mp was not mounted, started manually
+		msg 2 WARN: /tmp/$mp was not mounted, started manually, see mounts.orig
+		mv $OUTD/mounts.$STEP $OUTD/mounts.orig
+		# Otherwise we will see mount diffs later
+		grep tm${HEXID} /proc/mounts | sort >$OUTD/mounts.$STEP
 	    else
 		msg 0 failed to mount /tmp/$mp; false
 	    fi
@@ -803,16 +825,20 @@ $(cat $OUTD/swaps.1)"
 }
 
 check_diff() {
-    # opt $1: -n: nonfatal
+    # opt $1: -n: nonfatal -i: ignore
     # arg $1: basename
     local dif nf= lvl word
-    [[ $1 != -n ]] || {
-	nf=yes
-	shift
-    }
+    case $1 in
+	-*)
+	    nf=$1
+	    shift
+	    ;;
+    esac
     dif="$(diff -u $OUTD/$1.1 $OUTD/$1.$STEP)" || true
     if [[ $dif ]]; then
-	if [[ $nf ]]; then
+	if [[ $nf = -i ]]; then
+	    msg 3 INFO: $1 diffs in step $STEP
+	elif [[ $nf = -n ]]; then
 	    : $((++WARNINGS))
 	    msg 2 WARN: $1 diffs in step $STEP
 	else
@@ -822,7 +848,7 @@ check_diff() {
 $dif"
 	fi
     else
-	msg 2 PASS: no $1 diffs in step $STEP
+	[[ $nf = -i ]] || msg 2 PASS: no $1 diffs in step $STEP
 	rm -f $OUTD/$1.$STEP
     fi
 }
@@ -839,6 +865,7 @@ new_step() {
     msg 3 "paths after step $STEP:
 $(cat $OUTD/paths.$STEP)"
 
+    check_diff -i kernel
     check_diff -n udevinfo
     check_diff symlinks
     check_diff mounts
