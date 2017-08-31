@@ -143,6 +143,24 @@ get_symlinks() {
     cd - >/dev/null
 }
 
+get_multipath_maps() {
+    dmsetup table | sed -n /" multipath "'/s/: .*//p'
+}
+
+get_opencount() {
+    # arg $1: dm name
+    dmsetup info -c -o open --noheadings /dev/mapper/$1
+}
+
+get_free_multipath_maps() {
+    local maps mp
+
+    maps=$(get_multipath_maps)
+    for mp in $maps; do
+	[[ $(get_opencount $mp) -gt 0 ]] || echo $mp
+    done
+}
+
 get_slaves() {
     # arg $1: dm device name
     local devno
@@ -709,8 +727,10 @@ run_tests() {
 SHORTOPTS=o:np:l:t:i:m:u:M:vqTh
 LONGOPTS='output:,parts:,lvs,test:,iterations:,mp-debug:,udev-debug:,monitor:,verbose,quiet,trace,help'
 USAGE="
-usage: $ME [options] mapname
-       -h|--help		print help
+usage: $ME [options] mapname [mapname ...]
+       -h|--help		p
+
+rint help
        -o|--output		output directory (default: auto)
        -n|--no-partitions	don't create partitions (ignore -p)
        -p|--parts x,y,z		partition types (ext2, xfs, btrfs, lvm, raw)
@@ -800,8 +820,13 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
-[[ $# -eq 1 ]] || { usage; exit 1; }
-eval "MPATHS=($@)"
+if [[ $# -ge 1 ]]; then
+    eval "MPATHS=($@)"
+else
+    msg 2 no mpaths specified, checking for free ones
+    MPATHS=($(get_free_multipath_maps))
+fi
+[[ ${#MPATHS[@]} -gt 0 ]]
 
 if [[ $LV_TYPES ]]; then
     case $FS_TYPES in
