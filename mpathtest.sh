@@ -989,7 +989,7 @@ push_cleanup debug_udev off
 if [[ $TESTS ]]; then
     for _t in $TESTS; do
 	# error if a test doesn't exist
-	[[ -f $_t ]]
+	[[ -f ${_t%%,*} ]]
     done
 else
     for _t in test_*; do
@@ -1002,17 +1002,19 @@ else
 		continue
 		;;
 	    *)
-		# Test must define a function that is equal to the file name
-		grep -q "^$(basename $_t)() {" $_t || {
-		    msg 1 ERROR: $_t is not a valid test case
-		    continue
-		}
 		TESTS="$TESTS $_t"
 		;;
 	esac
     done
 fi
 [[ $TESTS ]]
+for _t in $TESTS; do
+    # Test must define a function that is equal to the file name
+    grep -q "^$(basename ${_t%%,*})() {" ${_t%%,*} || {
+	msg 1 ERROR: $_t is not a valid test case
+	false
+    }
+done
 msg 2 Tests to be run: $TESTS
 
 PATHS=()
