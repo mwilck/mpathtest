@@ -607,12 +607,12 @@ create_filesystems() {
     # arg $1: multipath map name
     # further args: partition types recognized by parted, or "lvm"
     # (should match args of create_parts)
-    local name=$1 pdev
+    local name=$1 pdev pn=0
     shift
 
     while [[ $# -gt 0 ]]; do
 	N_FS=$((N_FS+1))
-	pdev=/dev/mapper/$name-part$N_FS
+	pdev=/dev/mapper/$name-part$((++pn))
 	[[ -b $pdev ]]
 	create_fs $pdev $1
 	shift
