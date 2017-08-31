@@ -756,7 +756,6 @@ check_initial_state() {
 }
 
 initial_step() {
-    check_initial_state
 
     write_state
     msg 3 "paths:
@@ -767,6 +766,9 @@ $(cat $OUTD/symlinks.1)"
 $(cat $OUTD/mounts.1)"
     [[ ! $USING_SWAP ]] || msg 3 "swaps:
 $(cat $OUTD/swaps.1)"
+
+    [[ ! $WAIT ]] || wait_for_input
+    check_initial_state
 }
 
 check_diff() {
