@@ -31,6 +31,8 @@ N_PARTS=0
 N_FS=0
 N_LVS=0
 STEP=0
+ERRORS=0
+WARNINGS=0
 SWAPS=
 
 timestamp() {
@@ -1056,3 +1058,7 @@ sleep 2
 while [[ $((ITERATIONS--)) -gt 0 ]]; do
     run_tests
 done
+
+msg 2 $ERRORS errors and $WARNINGS warnings encountered
+
+exit $((ERRORS > 0 ? 1 : 0))
