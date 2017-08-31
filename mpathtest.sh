@@ -598,6 +598,8 @@ create_fs() {
     [[ ! -e /dev/disk/by-uuid/$uuid ]]
 
     label=tm${HEXID}p${N_FS}$fs
+    [[ ! -e /dev/disk/by-label/$label ]]
+
     msg 2 creating $fs on $pdev, label $label, uuid $uuid
     case $fs in
 	ext2)
