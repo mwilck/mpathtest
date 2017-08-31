@@ -1,20 +1,20 @@
+# -*- mode: shell-script -*-
 test_offline_online() {
+    local wait=$1
 
     for path in ${PATHS[@]}; do
 	action offline $path
-	usleep 1000
+	usleep ${wait:-1000}
     done
 
     sleep 2
-    
     new_step
-    
+
     for path in ${PATHS[@]}; do
 	action online $path
-	usleep 1000
+	usleep ${wait:-1000}
     done
+
     sleep 2
-
     new_step
-
 }

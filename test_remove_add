@@ -1,8 +1,10 @@
+# -*- mode: shell-script -*-
 test_remove_add() {
+    local wait=$1
 
     for path in ${PATHS[@]}; do
 	action remove $path
-	usleep 1000
+	usleep ${wait:-1000}
     done
 
     sleep 2
@@ -11,7 +13,7 @@ test_remove_add() {
     
     for path in ${PATHS[@]}; do
 	action add $path
-	usleep 1000
+	usleep ${wait:-1000}
     done
     sleep 2
 
