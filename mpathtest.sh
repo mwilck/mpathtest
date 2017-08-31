@@ -386,7 +386,7 @@ start_monitor() {
     [[ $MONITOR_OPTS ]] || return 0
     create_monitor_service
     push_cleanup stop_monitor
-    systemctl daemon-reload
+    reload_systemd
     msg 3 starting udev monitor, options $MONITOR_OPTS
     systemctl start tm-udev-monitor@block.service
 }
@@ -405,7 +405,7 @@ EOF
     else
 	rm -f /etc/systemd/system/multipathd.service.d/debug.conf
     fi
-    systemctl daemon-reload
+    reload_systemd
     msg 3 restarting multipathd
     systemctl restart multipathd
 }
@@ -417,6 +417,16 @@ debug_udev() {
 	udevadm control -l $UDEV_DEBUG
     else
 	udevadm control -l err
+    fi
+}
+
+reload_systemd() {
+    if [[ $SD_DEBUG = xerr ]]; then
+	systemctl daemon-reload
+    else
+	systemd-analyze set-log-level err
+	systemctl daemon-reload
+	systemd-analyze set-log-level $SD_DEBUG
     fi
 }
 
@@ -569,7 +579,7 @@ fstab_entry() {
 	    push_cleanup umount -l "/tmp/$2"
 	    ;;
     esac
-    push_cleanup systemctl daemon-reload
+    push_cleanup reload_systemd
     if [[ $((${#MOUNTPOINTS[@]} % 2)) -eq 0 ]]; then
 	echo LABEL=$2 /tmp/$2 $1 defaults 0 0 >>/etc/fstab
 	push_cleanup sed -i "/LABEL=$2/d" /etc/fstab
@@ -577,7 +587,7 @@ fstab_entry() {
 	echo UUID=$3 /tmp/$2 $1 defaults 0 0 >>/etc/fstab
 	push_cleanup sed -i "/UUID=$3/d" /etc/fstab
     fi
-    systemctl daemon-reload
+    reload_systemd
     usleep 100000
 }
 
