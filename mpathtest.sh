@@ -486,8 +486,9 @@ create_parts() {
 		    ;;
 	    esac
 	    end=$((begin+sz/n-1))
+	    lbl=tm${HEXID}p$((++N_PARTS))$p
 	    [[ $end -lt $sz ]] || end=-1
-	    echo mkpart tm${HEXID}p${i}$p $type $begin $end
+	    echo mkpart $lbl $type $begin $end
 	    echo $more
 	    begin=$end
 	done
