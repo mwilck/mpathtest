@@ -418,6 +418,8 @@ delete_slaves() {
     [[ $dev && -b $dev ]]
     slaves=$(get_slaves $1)
     for slv in $slaves; do
+	# refuse deleting slaves that are in use
+        [[ $(get_opencount $slv) -eq 0 ]]
 	msg 2 old slave $slv will be deleted
     done
 
