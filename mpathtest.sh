@@ -754,13 +754,26 @@ $(cat $OUTD/mounts.1)"
     [[ ! $USING_SWAP ]] || msg 3 "swaps:
 $(cat $OUTD/swaps.1)"
 }
+
 check_diff() {
+    # opt $1: -n: nonfatal
     # arg $1: basename
-    local dif
+    local dif nf= lvl word
+    [[ $1 != -n ]] || {
+	nf=yes
+	shift
+    }
     dif="$(diff -u $OUTD/$1.1 $OUTD/$1.$STEP)" || true
     if [[ $dif ]]; then
-	msg 1 ERROR: $1 diffs in step $STEP: "
+	if [[ $nf ]]; then
+	    : $((++WARNINGS))
+	    msg 2 WARN: $1 diffs in step $STEP
+	else
+	    : $((++ERRORS))
+	    msg 1 ERROR: $1 diffs in step $STEP
+	    msg 3 "
 $dif"
+	fi
     else
 	msg 2 PASS: no $1 diffs in step $STEP
 	rm -f $OUTD/$1.$STEP
@@ -779,6 +792,7 @@ new_step() {
     msg 3 "paths after step $STEP:
 $(cat $OUTD/paths.$STEP)"
 
+    check_diff -n udevinfo
     check_diff symlinks
     check_diff mounts
     [[ ! $USING_SWAP ]] || check_diff swaps
