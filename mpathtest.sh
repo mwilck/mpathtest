@@ -488,6 +488,9 @@ create_parts() {
 		raw)
 		    type=ext2
 		    ;;
+		swap)
+		    type=linux-swap
+		    ;;
 		*)
 		    type=$p
 		    ;;
@@ -585,6 +588,10 @@ create_fs() {
 	lvm)
 	    run_lvm pvcreate -q -u $uuid --norestorefile $pdev
 	    PVS[${#PVS[@]}]=$pdev
+	    ;;
+	swap)
+	    fstab_entry swap $label $uuid
+	    mkswap -f -L $label -U $uuid $pdev
 	    ;;
     esac
 }
