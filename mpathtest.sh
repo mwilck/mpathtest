@@ -754,12 +754,29 @@ write_state() {
 	tail -n +2 /proc/swaps | sort >$OUTD/swaps.$STEP
 }
 
+start_mount_unit() {
+    # arg $1: mount point
+    local unit
+    unit=${1//\//-}
+    unit=${unit#-}.mount
+    msg 3 starting $unit
+    systemctl start $unit
+}
+
 check_initial_state() {
     # check the everything is set up as expected
     local mp
     for mp in ${MOUNTPOINTS[@]}; do
 	msg 4 checking /tmp/$mp
-	grep -q /tmp/$mp /proc/mounts
+	grep -q /tmp/$mp /proc/mounts || {
+	    start_mount_unit /tmp/$mp
+	    if grep -q /tmp/$mp /proc/mounts; then
+		: $((WARNINGS++))
+		msg 2 WARN: /tmp/$mp was not mounted, started manually
+	    else
+		msg 0 failed to mount /tmp/$mp; false
+	    fi
+	}
 	msg 2 PASS: /tmp/$mp is mounted
     done
     for mp in $SWAPS; do
