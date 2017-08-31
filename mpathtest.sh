@@ -498,7 +498,7 @@ $(cat $TMPD/parted.cmd)"
 
     parted $dev <$TMPD/parted.cmd #&>/dev/null
 
-    pt=$(parted -s $dev unit MiB print | grep '^ *[0-9]')
+    pt=$(parted -s $dev unit MiB print | grep '^ *[0-9]' || true)
     msg 3 created partition table: "
 $pt"
     [[ $(wc -l <<< "$pt") -eq $n ]] || {
