@@ -37,6 +37,12 @@ timestamp() {
     echo ${x:0:-3}
 }
 
+wait_for_input() {
+    local _a
+    msg 1 hit key:
+    read _a
+}
+
 msg() {
     [[ $1 -gt $DEBUGLVL ]] && return
     shift
@@ -774,8 +780,9 @@ run_tests() {
     done
 }
 
-SHORTOPTS=o:np:l:t:i:m:u:M:vqeTh
-LONGOPTS='output:,parts:,lvs,test:,iterations:,mp-debug:,udev-debug:,monitor:,verbose,quiet,terminal,trace,help'
+SHORTOPTS=o:np:l:t:i:m:u:M:wvqeTh
+LONGOPTS="output:,parts:,lvs,test:,iterations:,mp-debug:,udev-debug:,\
+monitor:,wait,verbose,quiet,terminal,trace,help"
 USAGE="
 usage: $ME [options] mapname [mapname ...]
        -h|--help		p
@@ -790,6 +797,7 @@ rint help
        -m lvl|--mp-debug lvl	set multipathd debug level
        -u lvl|--udev-debug lvl  set udev debug level
        -M opts|--monitor opts   set udev monitor options e.g. \"k,u,p\" or \"off\"
+       -w|--wait	 	wait after setup stage
        -q|--quiet	   	decrease verbose level for script
        -v|--verbose 	   	increase verbose level for script
        -e|--terminal		log to terminal, not log file
@@ -808,6 +816,8 @@ unset OPTIONS
 TERMINAL=
 TRACE=
 NO_PARTITIONS=
+USING_SWAP=
+WAIT=
 while [[ $# -gt 0 ]]; do
     case $1 in
 	-h|--help)
@@ -848,6 +858,9 @@ while [[ $# -gt 0 ]]; do
 	-M|--monitor)
 	    shift
 	    eval "set_monitor_opts $1"
+	    ;;
+	-w|--wait)
+	    WAIT=1
 	    ;;
 	-v|--verbose)
 	    : $((++DEBUGLVL))
@@ -978,9 +991,12 @@ set_SLAVES
 msg 2 slaves: "
 $SLAVES"
 
+# give systemd some time
 sleep 2
-
 new_step
+[[ ! $WAIT ]] || wait_for_input
+
+sleep 2
 
 while [[ $((ITERATIONS--)) -gt 0 ]]; do
     run_tests
