@@ -910,6 +910,7 @@ usage() {
 OPTIONS=($(getopt -s bash -o "$SHORTOPTS" --longoptions "$LONGOPTS" -- "$@"))
 set -- "${OPTIONS[@]}"
 unset OPTIONS
+msg 2 Startup: $ME "$*"
 
 TERMINAL=
 TRACE=
