@@ -420,6 +420,16 @@ debug_udev() {
     fi
 }
 
+debug_systemd() {
+    # arg $1: "on" or "off"
+    if [[ x$1 = xon && x$SD_DEBUG != xerr ]]; then
+	msg 4 setting debug level $SD_DEBUG for systemd
+	systemd-analyze set-log-level $SD_DEBUG
+    else
+	systemd-analyze set-log-level err
+    fi
+}
+
 delete_slaves() {
     # arg $1: dm device name
     local slaves slv dev
@@ -834,8 +844,8 @@ run_tests() {
     done
 }
 
-SHORTOPTS=o:np:l:t:i:m:u:M:wvqeTh
-LONGOPTS="output:,parts:,lvs,test:,iterations:,mp-debug:,udev-debug:,\
+SHORTOPTS=o:np:l:t:i:m:u:s:M:wvqeTh
+LONGOPTS="output:,parts:,lvs,test:,iterations:,mp-debug:,udev-debug:,sd-debug:\
 monitor:,wait,verbose,quiet,terminal,trace,help"
 USAGE="
 usage: $ME [options] mapname [mapname ...]
@@ -850,6 +860,7 @@ rint help
        -i|--iterations n	test iterations (default 1)
        -m lvl|--mp-debug lvl	set multipathd debug level
        -u lvl|--udev-debug lvl  set udev debug level
+       -s lvl|--sd-debug lvl	set systemd debug level
        -M opts|--monitor opts   set udev monitor options e.g. \"k,u,p\" or \"off\"
        -w|--wait	 	wait after setup stage
        -q|--quiet	   	decrease verbose level for script
@@ -908,6 +919,10 @@ while [[ $# -gt 0 ]]; do
 	-u|--udev-debug)
 	    shift
 	    eval "UDEV_DEBUG=$1"
+	    ;;
+	-s|--sd-debug)
+	    shift
+	    eval "SD_DEBUG=$1"
 	    ;;
 	-M|--monitor)
 	    shift
@@ -987,6 +1002,8 @@ debug_multipathd on
 push_cleanup debug_multipathd off
 debug_udev on
 push_cleanup debug_udev off
+debug_systemd on
+push_cleanup debug_systemd off
 
 if [[ $TESTS ]]; then
     for _t in $TESTS; do
