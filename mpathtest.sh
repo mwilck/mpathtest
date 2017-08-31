@@ -425,14 +425,43 @@ delete_slaves() {
 
 }
 
+check_parts() {
+    # arg $1: dm name
+    # arg $2: number of partitions
+    local i=0
+    while [[ $((++i)) -le $n ]]; do
+	[[ -b /dev/mapper/$1-part$i ]] || return 1
+    done
+    return 0
+}
+
+WAIT_FOR_PARTS=5
+wait_for_parts() {
+    # arg $1: dm name
+    # arg $2: number of partitions
+    local end=$(($(date +%s) + WAIT_FOR_PARTS))
+
+    while ! check_parts $1 $2; do
+	usleep 100000
+	[[ $(date +%s) -le $end ]] || {
+	    msg 0 timeout waiting for partitions on $1;
+	    msg 1 hit key
+	    read a
+	    return 1
+	}
+    done
+    return 0
+}
+
 create_parts() {
-    # arg $1: dm device /dev/dm-$X
-    # arg $2: device size in MiB
+    # arg $1: dm name
+    # arg $2: dm device /dev/dm-$X
+    # arg $1: device size in MiB
     # further args: partition types recognized by parted, or "lvm"
-    [[ $1 && $2 && -b $1 ]]
-    local dev=$1 sz=$2
-    local p n i begin end type more pt
-    shift; shift
+    [[ $2 && $3 && -b $2 ]]
+    local map=$1 dev=$2 sz=$3
+    local p n i begin end type more pt lbl
+    shift; shift; shift
 
     n=$#
     {
@@ -464,7 +493,6 @@ create_parts() {
 	done
     } >$TMPD/parted.cmd
 
-    N_PARTS=$n
     msg 4 parted commands: "
 $(cat $TMPD/parted.cmd)"
 
@@ -477,8 +505,8 @@ $pt"
 	msg 1 error in parted, not all partitions were created; false
     }
 
-    kpartx -a -p -part $dev
     push_cleanup kpartx -d $dev
+    wait_for_parts $map $n
 }
 
 clear_parts() {
@@ -619,7 +647,7 @@ prepare_mpath() {
     else
 	devsz=$(($(blockdev --getsz $dev)/2048))
 	[[ $devsz -gt 1 ]]
-	create_parts $dev $devsz $FS_TYPES
+	create_parts $1 $dev $devsz $FS_TYPES
 	create_filesystems $1 $FS_TYPES
     fi
 }
