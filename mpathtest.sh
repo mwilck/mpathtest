@@ -746,10 +746,12 @@ check_initial_state() {
     # check the everything is set up as expected
     local mp
     for mp in ${MOUNTPOINTS[@]}; do
+	msg 4 checking /tmp/$mp
 	grep -q /tmp/$mp /proc/mounts
 	msg 2 PASS: /tmp/$mp is mounted
     done
     for mp in $SWAPS; do
+	msg 4 checking swap $mp
 	grep -q ^$mp /proc/swaps
 	msg 2 PASS: swap $mp is active
     done
