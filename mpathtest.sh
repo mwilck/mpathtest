@@ -428,7 +428,8 @@ delete_slaves() {
     for slv in $slaves; do
 	dmsetup remove /dev/mapper/$slv
     done
-
+    # don't continue if still open
+    [[ $(get_opencount $1) -eq 0 ]]
 }
 
 check_parts() {
