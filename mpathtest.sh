@@ -700,11 +700,28 @@ prepare() {
     push_cleanup cleanup_paths
 }
 
+get_udevinfo() {
+    # arg $1: device
+    # DEVLINKS must be sorted otherwise false errors are seen
+    local dl rest sorted
+
+    udevadm info $1 >$TMPD/_udevinfo
+    dl=($(sed -n 's/^E: DEVLINKS=//p' <$TMPD/_udevinfo))
+    sed '/^E: DEVLINKS=/d;/^ *$/d' <$TMPD/_udevinfo
+    IFS=$'\n' 
+    sorted=($(echo "${dl[*]}" | sort))
+    unset IFS
+    echo "E: DEVLINKS=${sorted[@]}"
+}
+
 write_state() {
     local mp
     for mp in ${MPATHS[@]}; do
 	get_path_state $mp
     done | sort >$OUTD/paths.$STEP
+    for mp in ${MPATHS[@]} ${SLAVES[@]}; do
+	get_udevinfo /dev/mapper/$mp | sort
+    done >$OUTD/udevinfo.$STEP
     get_bdev_symlinks >$OUTD/symlinks.$STEP
     grep tm${HEXID} /proc/mounts | sort >$OUTD/mounts.$STEP
     [[ ! $USING_SWAP ]] || \
