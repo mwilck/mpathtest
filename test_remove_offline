@@ -26,6 +26,6 @@ test_remove_offline() {
 	: $((i--))
     done
 
-    sleep 2 added/onlined paths
-    new_step -k
+    sleep 2
+    new_step -k added/onlined paths
 }

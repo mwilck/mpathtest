@@ -7,16 +7,16 @@ test_remove_add() {
 	usleep ${wait:-1000}
     done
 
-    sleep 2 removed paths
+    sleep 2
     
-    new_step
+    new_step removed paths
     
     for path in ${PATHS[@]}; do
 	action add $path
 	usleep ${wait:-1000}
     done
-    sleep 2 added paths
+    sleep 2
 
-    new_step -k
+    new_step -k added paths
 
 }

@@ -7,14 +7,14 @@ test_offline_online() {
 	usleep ${wait:-1000}
     done
 
-    sleep 2 offlined paths
-    new_step
+    sleep 2
+    new_step offlined paths
 
     for path in ${PATHS[@]}; do
 	action online $path
 	usleep ${wait:-1000}
     done
 
-    sleep 2 restored paths
-    new_step -k
+    sleep 2
+    new_step -k restored paths
 }
