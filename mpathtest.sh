@@ -149,6 +149,29 @@ get_path_state() {
     multipathd show paths format "%m %i %t %o %T" | sed -n "s/$1 //p" | sort
 }
 
+PATH_FILTER=
+build_path_filter() {
+    local p
+    for p in ${PATHS[@]}; do
+	case $p in
+	    scsi-*)
+		PATH_FILTER="$PATH_FILTER|${p#scsi-}"
+		;;
+	    *)
+		msg 1 build_path_filter: $p is unsupported
+		false
+		;;
+	    esac
+    done
+    PATH_FILTER="(${PATH_FILTER#|})"
+    msg 3 PATH_FILTER=$PATH_FILTER
+}
+
+get_path_state_all(){
+    [[ $PATH_FILTER ]] || build_path_filter
+    multipathd show paths format "%i %t %o %T" | egrep "$PATH_FILTER" | sort
+}
+
 get_symlinks() {
     # arg $1: dm device name dm-$X
     [[ $1 ]]
@@ -794,9 +817,7 @@ get_udevinfo() {
 write_state() {
     local mp
     kernel_path_states >$OUTD/kernel.$STEP
-    for mp in ${MPATHS[@]}; do
-	get_path_state $mp
-    done | sort >$OUTD/paths.$STEP
+    get_path_state_all >$OUTD/paths.$STEP
     for mp in ${MPATHS[@]} ${SLAVES[@]}; do
 	get_udevinfo /dev/mapper/$mp | sort
     done >$OUTD/udevinfo.$STEP
