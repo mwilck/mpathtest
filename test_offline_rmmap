@@ -16,21 +16,21 @@ test_offline_rmmap() {
 	: $((++i))
     done
 
-    sleep 2
+    sleep 10
     new_step set paths offline
 
     for mp in ${MPATHS[@]}; do
 	multipathd remove map $mp
     done
 
-    sleep 2
+    sleep 5
     new_step -s -u removed maps
 
     for mp in ${MPATHS[@]}; do
 	multipathd add map $mp
     done
 
-    sleep 2
+    sleep 5
     new_step re-added maps with 0 paths
 
     i=0
@@ -44,6 +44,6 @@ test_offline_rmmap() {
 	: $((++i))
     done
 
-    sleep 2
+    sleep 10
     new_step -k restored paths
 }
