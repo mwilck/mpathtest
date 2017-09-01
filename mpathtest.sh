@@ -43,7 +43,7 @@ timestamp() {
 
 wait_for_input() {
     local _a
-    msg 1 hit key:
+    msg 1 hit ENTER:
     read _a
 }
 
