@@ -915,7 +915,7 @@ new_step() {
 	return
     fi
 
-    msg 2 Step $STEP: $@
+    msg 2 === Step $STEP: $@ ===
     write_state
     msg 3 "paths after step $STEP:
 $(cat $OUTD/paths.$STEP)"
@@ -948,7 +948,7 @@ run_test() {
 	source "$file"
 	touch $TMPD/__test_loaded_$safe
     }
-    msg 2 Running test $test
+    msg 2 %%%% Running test $test %%%%
     eval "$test $@"
 }
 
