@@ -7,7 +7,7 @@ _err_handler() {
     trap - ERR
     if [[ $ERR_FD ]]; then
 	echo "$0: Error in command \"$BC\" on line $LINE. See logs." >&$ERR_FD
-	exec $ERR_FD>&-
+	eval "exec $ERR_FD>&-"
 	ERR_FD=
     fi
     exec >&2
