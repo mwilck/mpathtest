@@ -12,9 +12,9 @@ MPATHS=()
 : ${UUID_PATTERN:=54f41f67-bd36-%s-%04x-0966d6a9c810}
 : ${VG:=tm_vg}
 # Partitions to create. All parts will have equal size
-: ${FS_TYPES:="ext2 xfs lvm"}
+: ${FS_TYPES:="btrfs lvm"}
 # LVs to create. All LVs will have equal size
-: ${LV_TYPES:="ext2 btrfs"}
+: ${LV_TYPES:="ext2 xfs"}
 # debug levels for multipathd (0-5) and udev (err, info, debug)
 : ${MULTIPATHD_DEBUG:=0}
 : ${UDEV_DEBUG:=err}
