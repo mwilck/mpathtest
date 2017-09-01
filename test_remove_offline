@@ -13,7 +13,7 @@ test_remove_offline() {
     done
 
     sleep 2
-    new_step
+    new_step removed/offlined paths
 
     i=$((${#PATHS[@]}-1))
     while [[ $i -ge 0 ]]; do
@@ -26,6 +26,6 @@ test_remove_offline() {
 	: $((i--))
     done
 
-    sleep 2
+    sleep 2 added/onlined paths
     new_step -k
 }

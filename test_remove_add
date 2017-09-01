@@ -7,7 +7,7 @@ test_remove_add() {
 	usleep ${wait:-1000}
     done
 
-    sleep 2
+    sleep 2 removed paths
     
     new_step
     
@@ -15,7 +15,7 @@ test_remove_add() {
 	action add $path
 	usleep ${wait:-1000}
     done
-    sleep 2
+    sleep 2 added paths
 
     new_step -k
 
