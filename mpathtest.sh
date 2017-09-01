@@ -751,7 +751,31 @@ get_udevinfo() {
 
     udevadm info $1 >$TMPD/_udevinfo
     dl=($(sed -n 's/^E: DEVLINKS=//p' <$TMPD/_udevinfo))
-    sed '/^E: DEVLINKS=/d;/^ *$/d' <$TMPD/_udevinfo
+    sed '
+# devlinks are sorted, see above
+/^E: DEVLINKS=/d
+/^ *$/d
+# Filter out properties that are known to be volatile
+# event properties that change depending on event
+/^E: DM_ACTIVATION=/d
+/^E: DM_DISABLE_OTHER_RULES_FLAG_OLD=/d
+/^E: DM_SUBSYSTEM_UDEV_FLAG[0-7]=/d
+/^E: DM_UDEV_DISABLE_.*_FLAG=/d
+/^E: DM_UDEV_PRIMARY_SOURCE_FLAG=/d
+/^E: DM_UDEV_RULES_VSN=/d
+# device properties that are expected to change
+/^E: DM_DEPS=/d
+/^E: DM_NOSCAN=/d
+/^E: MPATH_DEVICE_READY=/d
+/^E: MPATH_UNCHANGED=/d
+# device properties that arent imported from db
+/^E: ID_PART_TABLE_TYPE=/d
+/^E: ID_PART_TABLE_UUID=/d
+/^E: ID_PART_ENTRY_SIZE=/d
+/^E: ID_PART_ENTRY_NUMBER=/d
+/^E: ID_PART_ENTRY_DISK=/d
+/^E: MPATH_SBIN_PATH=/d
+' <$TMPD/_udevinfo
     IFS=$'\n' 
     sorted=($(echo "${dl[*]}" | sort))
     unset IFS
