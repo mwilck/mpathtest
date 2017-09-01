@@ -901,10 +901,13 @@ $dif"
 }
 
 new_step() {
-    # arg $1: -k if kernel path list must be ok
+    # opt $1: -k if kernel path list must be ok
+    # args: step description
     local dif kflag=-i
     case $1 in
-	-k) kflag=;;
+	-k) kflag=
+	    shift
+	    ;;
     esac
 
     if [[ $((++STEP)) -eq 1 ]]; then
@@ -912,6 +915,7 @@ new_step() {
 	return
     fi
 
+    msg 2 Step $STEP: $@
     write_state
     msg 3 "paths after step $STEP:
 $(cat $OUTD/paths.$STEP)"
@@ -921,6 +925,7 @@ $(cat $OUTD/paths.$STEP)"
     check_diff symlinks
     check_diff mounts
     [[ ! $USING_SWAP ]] || check_diff swaps
+    [[ ! $WAIT ]] || wait_for_input
 }
 
 safe_filename() {
