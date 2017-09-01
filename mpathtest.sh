@@ -1103,10 +1103,13 @@ done
 msg 2 Tests to be run: $TESTS
 
 PATHS=()
+PLISTS=()
 set_PATHS() {
-    local mp
-    for mp in "${MPATHS[@]}"; do
-	PATHS=("${PATHS[@]}" $(get_path_list "$mp"))
+    local i=0 pls
+    while [[ $i -lt ${#MPATHS[@]} ]]; do
+	PLISTS[$i]=$(get_path_list ${MPATHS[$i]})
+	PATHS=("${PATHS[@]}" ${PLISTS[$i]})
+	: $((++i))
     done
     # https://stackoverflow.com/questions/7442417/how-to-sort-an-array-in-bash
     IFS=$'\n' PATHS=($(sort <<<"${PATHS[*]}"))
