@@ -749,7 +749,7 @@ get_udevinfo() {
     # DEVLINKS must be sorted otherwise false errors are seen
     local dl rest sorted
 
-    udevadm info $1 >$TMPD/_udevinfo
+    udevadm info $1 >$TMPD/_udevinfo || touch $TMPD/_udevinfo
     dl=($(sed -n 's/^E: DEVLINKS=//p' <$TMPD/_udevinfo))
     sed '
 # devlinks are sorted, see above
