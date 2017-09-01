@@ -902,13 +902,29 @@ $dif"
 
 new_step() {
     # opt $1: -k if kernel path list must be ok
+    #         -s if symlink diffs are expected
+    #         -u if udev diffs are expected
     # args: step description
-    local dif kflag=-i
-    case $1 in
-	-k) kflag=
-	    shift
-	    ;;
-    esac
+    local dif kflag=-i uflag=-n sflag=
+    while [[ $# -gt 0 ]]; do
+	case $1 in
+	    -k)
+		kflag=
+		;;
+	    -u)
+		uflag=-i
+		shift
+		;;
+	    -s)
+		sflag=-i
+		shift
+		;;
+	    *)
+		break
+		;;
+	esac
+	shift
+    done
 
     if [[ $((++STEP)) -eq 1 ]]; then
 	initial_step
@@ -921,8 +937,8 @@ new_step() {
 $(cat $OUTD/paths.$STEP)"
 
     check_diff $kflag kernel
-    check_diff -n udevinfo
-    check_diff symlinks
+    check_diff $uflag udevinfo
+    check_diff $sflag symlinks
     check_diff mounts
     [[ ! $USING_SWAP ]] || check_diff swaps
     [[ ! $WAIT ]] || wait_for_input

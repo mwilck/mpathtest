@@ -24,7 +24,7 @@ test_remove_rmmap() {
     done
 
     sleep 2
-    new_step removed maps
+    new_step -s -u removed maps
 
     for mp in ${MPATHS[@]}; do
 	multipathd add map $mp
