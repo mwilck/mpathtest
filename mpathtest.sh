@@ -32,6 +32,7 @@ N_PARTS=0
 N_FS=0
 N_LVS=0
 STEP=0
+PASSES=0
 ERRORS=0
 WARNINGS=0
 SWAPS=
@@ -814,6 +815,18 @@ start_mount_unit() {
     systemctl start $unit
 }
 
+pass() {
+    msg 2 PASS $((++PASSES)): $*
+}
+
+warn() {
+    msg 2 WARN $((++WARNINGS)): $*
+}
+
+error() {
+    msg 1 ERR  $((++ERRORS)): $*
+}
+
 check_initial_state() {
     # check the everything is set up as expected
     local mp
@@ -822,8 +835,7 @@ check_initial_state() {
 	grep -q /tmp/$mp /proc/mounts || {
 	    start_mount_unit /tmp/$mp
 	    if grep -q /tmp/$mp /proc/mounts; then
-		: $((WARNINGS++))
-		msg 2 WARN: /tmp/$mp was not mounted, started manually, see mounts.orig
+		warn /tmp/$mp was not mounted, started manually, see mounts.orig
 		[[ -f  $OUTD/mounts.orig ]] || \
 		    mv $OUTD/mounts.$STEP $OUTD/mounts.orig
 		# Otherwise we will see mount diffs later
@@ -832,12 +844,16 @@ check_initial_state() {
 		msg 0 failed to mount /tmp/$mp; false
 	    fi
 	}
-	msg 2 PASS: /tmp/$mp is mounted
+	pass /tmp/$mp is mounted
     done
     for mp in $SWAPS; do
 	msg 4 checking swap $mp
-	grep -q ^$mp /proc/swaps
-	msg 2 PASS: swap $mp is active
+	if grep -q ^$mp /proc/swaps; then
+	    pass swap $mp is active
+	else
+	    error swap $mp is inactive
+	    swapon $mp
+	fi
     done
 }
 
@@ -872,16 +888,14 @@ check_diff() {
 	if [[ $nf = -i ]]; then
 	    msg 3 INFO: $1 diffs in step $STEP
 	elif [[ $nf = -n ]]; then
-	    : $((++WARNINGS))
-	    msg 2 WARN: $1 diffs in step $STEP
+	    warn $1 diffs in step $STEP
 	else
-	    : $((++ERRORS))
-	    msg 1 ERROR: $1 diffs in step $STEP
+	    error $1 diffs in step $STEP
 	    msg 3 "
 $dif"
 	fi
     else
-	[[ $nf = -i ]] || msg 2 PASS: no $1 diffs in step $STEP
+	[[ $nf = -i ]] || pass no $1 diffs in step $STEP
 	rm -f $OUTD/$1.$STEP
     fi
 }
