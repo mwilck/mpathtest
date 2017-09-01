@@ -768,6 +768,8 @@ get_udevinfo() {
 /^E: DM_NOSCAN=/d
 /^E: MPATH_DEVICE_READY=/d
 /^E: MPATH_UNCHANGED=/d
+# This changes if a device is removed and re-added
+/^E: USEC_INITIALIZED=/d
 # device properties that arent imported from db
 /^E: ID_PART_TABLE_TYPE=/d
 /^E: ID_PART_TABLE_UUID=/d
@@ -775,6 +777,12 @@ get_udevinfo() {
 /^E: ID_PART_ENTRY_NUMBER=/d
 /^E: ID_PART_ENTRY_DISK=/d
 /^E: MPATH_SBIN_PATH=/d
+# 69-dm-lvm-metad sets these on DM_ACTIVATION only
+/^E: ID_MODEL=LVM PV .* on .*/d
+/^E: SYSTEMD_ALIAS=/d
+# This looks scary to suppress, but SYSTEMD_READY=0 is what matters
+/^E: SYSTEMD_READY=1/d
+/^E: SYSTEMD_WANTS=lvm2-pvscan@.*\.service/d
 ' <$TMPD/_udevinfo
     IFS=$'\n' 
     sorted=($(echo "${dl[*]}" | sort))
