@@ -11,7 +11,7 @@ command line arguments. If no no devices are given, it will grab all unused
 multipath devices (devices with an open count of 0) it finds. For devices
 given on the command line, existing unused kpartx partitions will be removed.
 
-> **CAUTION: data on the devices used for testing will be destroyed!! **
+**CAUTION: data on the devices used for testing will be destroyed!!**
 
 The program will then set up a storage stack on top of the multipath LUNs as
 specified on the command line, and run one or more tests. It will carry out
