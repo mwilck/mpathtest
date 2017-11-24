@@ -2,9 +2,15 @@ set -e -E
 trap 'LINE=$LINENO; BC=$BASH_COMMAND; _err_handler' ERR
 
 _err_handler() {
-    local i=1 
+    local i=1 bc1
     set +eE
     trap - ERR
+    bc1="$(eval "echo \"$BC\"")"
+    if [[ "$BC" != "$bc1" ]]; then
+	BC="\"$BC\" (=>\"$bc1\")"
+    else
+	BC="\"$BC\""
+    fi
     if [[ $ERR_FD ]]; then
 	echo "$0: Error in command \"$BC\" on line $LINE. See logs." >&$ERR_FD
 	eval "exec $ERR_FD>&-"
