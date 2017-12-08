@@ -1,23 +1,18 @@
 set -e -E
-trap 'LINE=$LINENO; BC=$BASH_COMMAND; _err_handler' ERR
+trap 'LINE=$LINENO; _err_handler' ERR
 
 _err_handler() {
-    local i=1 bc1
+    local i=1 bc0=$BASH_COMMAND bc1
     set +eE
     trap - ERR
-    bc1="$(eval "echo \"$BC\"")"
-    if [[ "$BC" != "$bc1" ]]; then
-	BC="\"$BC\" (=>\"$bc1\")"
-    else
-	BC="\"$BC\""
-    fi
-    if [[ $ERR_FD ]]; then
-	echo "$0: Error in command \"$BC\" on line $LINE. See logs." >&$ERR_FD
-	eval "exec $ERR_FD>&-"
-	ERR_FD=
-    fi
     exec >&2
-    echo "$0: Error in command \"$BC\" on line $LINE. Stack:"
+    bc1="$(eval "echo \"$bc0\"")"
+    if [[ "$bc0" != "$bc1" ]]; then
+	bc0="\"$bc0\" (=>\"$bc1\")"
+    else
+	bc0="\"$bc0\""
+    fi
+    echo "$0: Error in command $bc0 on line $LINE. Stack:"
     while [[ $i < ${#FUNCNAME[@]} ]]; do
 	printf "file %s:%s() line %d \n" \
 	       "${BASH_SOURCE[$i]}" "${FUNCNAME[$i]}" "${BASH_LINENO[((i-1))]}"
