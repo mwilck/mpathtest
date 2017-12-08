@@ -791,6 +791,7 @@ get_udevinfo() {
 # device properties that are expected to change
 /^E: DM_DEPS=/d
 /^E: DM_NOSCAN=/d
+/^E: DM_LAST_EVENT_NR=/d
 /^E: MPATH_DEVICE_READY=/d
 /^E: MPATH_UNCHANGED=/d
 # This changes if a device is removed and re-added
