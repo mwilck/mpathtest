@@ -1002,9 +1002,7 @@ LONGOPTS="output:,parts:,lvs,test:,iterations:,mp-debug:,udev-debug:,sd-debug:\
 monitor:,wait,verbose,quiet,terminal,trace,help"
 USAGE="
 usage: $ME [options] mapname [mapname ...]
-       -h|--help		p
-
-rint help
+       -h|--help		print help
        -o|--output		output directory (default: auto)
        -n|--no-partitions	don't create partitions (ignore -p)
        -p|--parts x,y,z		partition types (ext2, xfs, btrfs, lvm, raw)
