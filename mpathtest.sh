@@ -322,7 +322,7 @@ _scsi_path_state() {
     # arg $1: scsi device hctl e.g. 7:0:0:1
     local sd=/sys/class/scsi_device/$1/device
     if [[ -f $sd/state ]]; then
-	echo $1: $(cat $sd/state):$(cat $sd/dh_state 2>&-)
+	echo $1: $(cat $sd/state):$(cat $sd/dh_state 2>&-):$(cat $sd/access_state 2>&-)
     else
 	echo $1: missing
     fi
