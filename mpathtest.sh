@@ -575,6 +575,7 @@ create_parts() {
 	    echo $more
 	    begin=$end
 	done
+	echo quit
     } >$TMPD/parted.cmd
 
     msg 4 parted commands: "
