@@ -1,0 +1,35 @@
+# -*- mode: shell-script -*-
+
+trq_start() {
+    read
+    "$@"
+}
+
+test_remove_quick() {
+    local wait=$1
+    local fifo=$TMPD/trq-fifo
+    local start=''
+    local fd
+
+    rm -f $fifo
+    mkfifo $fifo
+    exec {fd}<>$fifo
+    for path in ${PATHS[@]}; do
+	start="$start"$'\n'
+	trq_start action remove $path <&$fd &
+    done
+    echo "$start" >&$fd
+
+    sleep 2
+    new_step removed paths
+
+    for path in ${PATHS[@]}; do
+	action add $path
+	usleep ${wait:-1000}
+    done
+    sleep 2
+
+    new_step -k added paths
+    exec {fd}>&-
+    rm -f $fifo
+}
