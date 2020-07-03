@@ -540,7 +540,7 @@ create_parts() {
     # further args: partition types recognized by parted, or "lvm"
     [[ $2 && $3 && -b $2 ]]
     local map=$1 dev=$2 sz=$3
-    local p n i begin end type more pt lbl
+    local p n i begin end type more pt lbl po
     shift; shift; shift
 
     n=$#
@@ -581,7 +581,10 @@ create_parts() {
     msg 4 parted commands: "
 $(cat $TMPD/parted.cmd)"
 
-    parted $dev <$TMPD/parted.cmd #&>/dev/null
+    # parted blows binary blobs to stderr
+    po=$(parted $dev <$TMPD/parted.cmd 2>&1)
+    msg 4 parted output: "
+$po"
 
     pt=$(parted -s $dev unit MiB print | grep '^ *[0-9]' || true)
     msg 3 created partition table: "
