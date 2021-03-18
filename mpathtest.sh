@@ -23,7 +23,7 @@ MPATHS=()
 : ${MONITOR_OPTS:=}
 : ${ITERATIONS:=1}
 : ${TESTS:=}
-: ${FIO_OPTS:=--rw=rw --time_based --runtime=3600 --nrfiles=4 --ioengine=libaio --iodepth=16 --direct=1}
+: ${FIO_OPTS:=--rw=rw --time_based --runtime=3600 --ioengine=libaio --iodepth=16 --direct=1}
 
 PVS=()
 LVS=()
@@ -499,7 +499,7 @@ delete_slaves() {
 	msg 2 old slave $slv will be deleted
     done
 
-    kpartx -d $dev
+    kpartx -v -d $dev
     slaves=$(get_slaves $1)
     for slv in $slaves; do
 	dmsetup remove /dev/mapper/$slv
@@ -534,6 +534,19 @@ wait_for_parts() {
 	}
     done
     return 0
+}
+
+start_fio_on_part() {
+    # arg #1: block device
+    local dev=$1 n
+
+    [[ $FIO ]] || return
+    n=${#FIO_PIDS[@]}
+    fio --name=fio$$_$n --filename=$dev $FIO_OPTS &>$OUTD/fio_$n.log &
+    pid=$!
+    FIO_PIDS[$n]=$pid
+    msg 2 started fio on device $dev as $pid
+    push_cleanup "kill -TERM $pid"
 }
 
 create_parts() {
@@ -649,9 +662,8 @@ create_fs() {
     # arg $2: fs type or "lvm"
     local pdev=$1 fs=$2
     local uuid label
-    
+
     [[ $pdev && $fs && -b $pdev ]]
-    [[ $fs != raw && $fs != none ]] || return 0
 
     uuid=$(printf $UUID_PATTERN $HEXID $N_FS)
     [[ ! -e /dev/disk/by-uuid/$uuid ]]
@@ -682,6 +694,9 @@ create_fs() {
 	    fstab_entry swap $label $uuid
 	    mkswap -f -L $label -U $uuid $pdev
 	    SWAPS="$SWAPS $(readlink -f $pdev)"
+	    ;;
+	raw)
+	    start_fio_on_part $pdev
 	    ;;
     esac
 }
@@ -859,7 +874,7 @@ error() {
 
 start_fio_on_fs() {
     local mp=$1
-    local size n pid
+    local size n pid nr
 
     [[ $FIO ]] || return
     size=$(df -m $mp | awk 'NR==2 {print $4;}')
@@ -868,8 +883,10 @@ start_fio_on_fs() {
 	msg 2 skipping fio on $mp - too small
 	return
     }
+    nr=$((size / 16))
+    [[ $nr > 0 ]] || nr=1
     n=${#FIO_PIDS[@]}
-    fio --name=fio$$_$n --directory=$mp --size=${size}m $FIO_OPTS &>$OUTD/fio_$n.log &
+    fio --name=fio$$_$n --directory=$mp --nrfiles=$nr --size=${size}m $FIO_OPTS &>$OUTD/fio_$n.log &
     pid=$!
     FIO_PIDS[$n]=$pid
     msg 2 started fio on $mp as $pid
