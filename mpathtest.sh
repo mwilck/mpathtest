@@ -1040,6 +1040,7 @@ TERMINAL=
 TRACE=
 NO_PARTITIONS=
 USING_SWAP=
+FS_USED=
 WAIT=
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -1177,6 +1178,12 @@ case "$FS_TYPES $LV_TYPES" in
 	USING_SWAP=1
 	;;
 esac
+for _x in $FS_TYPES; do
+    case $_x in
+	raw) continue;;
+	*) FS_USED=yes;;
+    esac
+done
 
 if [[ ! $TERMINAL ]]; then
     exec 5>&2
@@ -1218,6 +1225,13 @@ else
 	    *~)
 		continue
 		;;
+	    *rmmap)
+		if [[ $FS_USED ]]; then
+		    msg 2 skipping $_t because file systems are used
+		else
+		    TESTS="$TESTS $_t"
+		fi
+		;;
 	    *)
 		TESTS="$TESTS $_t"
 		;;
@@ -1231,6 +1245,10 @@ for _t in $TESTS; do
 	msg 1 ERROR: $_t is not a valid test case
 	false
     }
+    if [[ $FS_USED && $_t = *rmmap ]]; then
+	msg 1 ERROR: $_t fails for FS_TYPES=\"$FS_TYPES\"
+	false
+    fi
 done
 msg 2 Tests to be run: $TESTS
 
