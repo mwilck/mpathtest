@@ -1139,9 +1139,14 @@ fi
 if [[ $PREFIX ]]; then
     export LD_LIBRARY_PATH=$LIBDIR
     export PATH=$BINDIR:$PATH
+    [[ ! -e $PREFIX/etc/system.conf ]]
     mkdir -p $PREFIX/etc
-    mv -f /etc/multipath.conf $PREFIX/etc/system.conf
-    push_cleanup 'mv -f $PREFIX/etc/system.conf /etc/multipath.conf'
+    if [[ -e /etc/multipath.conf ]]; then
+	mv -f /etc/multipath.conf $PREFIX/etc/system.conf
+	push_cleanup 'mv -f $PREFIX/etc/system.conf /etc/multipath.conf'
+    else
+	push_cleanup 'rm -f /etc/multipath.conf'
+    fi
     cat >/etc/multipath.conf <<EOF
 defaults {
 	 config_dir $PREFIX/etc
