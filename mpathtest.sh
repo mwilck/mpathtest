@@ -162,7 +162,7 @@ build_path_filter() {
 		msg 1 build_path_filter: $p is unsupported
 		false
 		;;
-	    esac
+	esac
     done
     PATH_FILTER="(${PATH_FILTER#|})"
     msg 3 PATH_FILTER=$PATH_FILTER
@@ -656,7 +656,7 @@ create_fs() {
     label=tm${HEXID}p${N_FS}$fs
     [[ ! -e /dev/disk/by-label/$label ]]
 
-    msg 2 creating $fs on $pdev, label $label, uuid $uuid
+    msg 3 creating $fs on $pdev, label $label, uuid $uuid
     case $fs in
 	ext2)
 	    fstab_entry ext4 $label $uuid
@@ -1036,6 +1036,11 @@ set -- "${OPTIONS[@]}"
 unset OPTIONS
 msg 2 Startup: $ME "$*"
 
+push_cleanup '[[ $OK ]] || : $((++ERRORS)); exit $((ERRORS > 0 ? 1 : 0))'
+push_cleanup '[[ $OK ]] || msg 1 $0 encountered an error. Check logs in $OUTD'
+push_cleanup 'msg 2 $ERRORS errors and $WARNINGS warnings encountered'
+
+OK=
 TERMINAL=
 TRACE=
 NO_PARTITIONS=
@@ -1299,6 +1304,4 @@ while [[ $((ITERATIONS--)) -gt 0 ]]; do
     run_tests
 done
 
-msg 2 $ERRORS errors and $WARNINGS warnings encountered
-
-exit $((ERRORS > 0 ? 1 : 0))
+OK=yes
