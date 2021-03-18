@@ -837,8 +837,17 @@ get_udevinfo() {
     echo "E: DEVLINKS=${sorted[@]}"
 }
 
+remove_good() {
+    # arg 1: basename of output file in output dir
+    local pat=$1
+
+    [[ $KEEP ]] && return
+    set -- $OUTD/$pat.*
+    [[ $# > 1 ]] || rm -f $OUTD/$pat.*
+}
+
 write_state() {
-    local mp
+    local mp x
     kernel_path_states >$OUTD/kernel.$STEP
     get_path_state_all >$OUTD/paths.$STEP
     for mp in ${MPATHS[@]} ${SLAVES[@]}; do
@@ -926,6 +935,9 @@ check_initial_state() {
 
 initial_step() {
 
+    for x in kernel paths udevinfo symlinks mounts swaps; do
+	push_cleanup "remove_good $x"
+    done
     write_state
     msg 3 "paths:
 $(cat $OUTD/paths.1)"
@@ -954,6 +966,7 @@ check_diff() {
     if [[ $dif ]]; then
 	if [[ $nf = -i ]]; then
 	    msg 3 INFO: $1 diffs in step $STEP
+	    rm -f $OUTD/$1.$STEP
 	elif [[ $nf = -n ]]; then
 	    warn $1 diffs in step $STEP
 	else
@@ -1002,7 +1015,7 @@ new_step() {
     write_state
     msg 3 "paths after step $STEP:
 $(cat $OUTD/paths.$STEP)"
-
+    rm -f $OUTD/paths.$STEP
     check_diff $kflag kernel
     check_diff $uflag udevinfo
     check_diff $sflag symlinks
@@ -1043,14 +1056,16 @@ run_tests() {
     done
 }
 
-SHORTOPTS=o:P:nFp:l:t:i:m:u:s:M:wvqeTh
-LONGOPTS="output:,prefix:,no-partitions,fio,parts:,lvs,test:,iterations:,mp-debug:,udev-debug:,sd-debug:\
+SHORTOPTS=o:P:nFkp:l:t:i:m:u:s:M:wvqeTh
+LONGOPTS="output:,prefix:,no-partitions,fio,keep,parts:,lvs,test:,\
+iterations:,mp-debug:,udev-debug:,sd-debug:,\
 monitor:,wait,verbose,quiet,terminal,trace,help"
 USAGE="
 usage: $ME [options] mapname [mapname ...]
        -h|--help		print help
        -P|--prefix		prefix for installed multipath-tools
        -o|--output		output directory (default: auto)
+       -k|--keep		keep output files even if no errors
        -n|--no-partitions	don't create partitions (ignore -p)
        -F|--fio			run fio on devices / file systems
        -p|--parts x,y,z		partition types (ext2, xfs, btrfs, lvm, raw, none)
@@ -1084,6 +1099,7 @@ push_cleanup 'msg 2 $ERRORS errors and $WARNINGS warnings encountered'
 
 OK=
 TERMINAL=
+KEEP=
 TRACE=
 NO_PARTITIONS=
 USING_SWAP=
@@ -1106,6 +1122,9 @@ while [[ $# -gt 0 ]]; do
 	    ;;
 	-n|--no-partitions)
 	    NO_PARTITIONS=yes
+	    ;;
+	-k|--keep)
+	    KEEP=yes
 	    ;;
 	-F|--fio)
 	    FIO=yes
