@@ -23,6 +23,7 @@ MPATHS=()
 : ${MONITOR_OPTS:=}
 : ${ITERATIONS:=1}
 : ${TESTS:=}
+: ${FIO_OPTS:=--rw=rw --time_based --runtime=3600 --nrfiles=4 --ioengine=libaio --iodepth=16 --direct=1}
 
 PVS=()
 LVS=()
@@ -37,6 +38,7 @@ PASSES=0
 ERRORS=0
 WARNINGS=0
 SWAPS=
+FIO_PIDS=()
 
 timestamp() {
     local x=$(date +%H:%M:%S.%N)
@@ -559,7 +561,7 @@ create_parts() {
 		    type=ext2
 		    more="set $i LVM on"
 		    ;;
-		raw)
+		raw|none)
 		    type=ext2
 		    ;;
 		swap)
@@ -649,7 +651,7 @@ create_fs() {
     local uuid label
     
     [[ $pdev && $fs && -b $pdev ]]
-    [[ $fs != raw ]] || return 0
+    [[ $fs != raw && $fs != none ]] || return 0
 
     uuid=$(printf $UUID_PATTERN $HEXID $N_FS)
     [[ ! -e /dev/disk/by-uuid/$uuid ]]
@@ -854,6 +856,26 @@ error() {
     msg 1 ERR  $((++ERRORS)): $*
 }
 
+
+start_fio_on_fs() {
+    local mp=$1
+    local size n pid
+
+    [[ $FIO ]] || return
+    size=$(df -m $mp | awk 'NR==2 {print $4;}')
+    size=$((size - 16))
+    [[ $size > 16 ]] || {
+	msg 2 skipping fio on $mp - too small
+	return
+    }
+    n=${#FIO_PIDS[@]}
+    fio --name=fio$$_$n --directory=$mp --size=${size}m $FIO_OPTS &>$OUTD/fio_$n.log &
+    pid=$!
+    FIO_PIDS[$n]=$pid
+    msg 2 started fio on $mp as $pid
+    push_cleanup "kill -TERM $pid"
+}
+
 check_initial_state() {
     # check the everything is set up as expected
     local mp
@@ -872,6 +894,7 @@ check_initial_state() {
 	    fi
 	}
 	pass /tmp/$mp is mounted
+	start_fio_on_fs /tmp/$mp
     done
     for mp in $SWAPS; do
 	msg 4 checking swap $mp
@@ -1003,8 +1026,8 @@ run_tests() {
     done
 }
 
-SHORTOPTS=o:P:np:l:t:i:m:u:s:M:wvqeTh
-LONGOPTS="output:,prefix:,parts:,lvs,test:,iterations:,mp-debug:,udev-debug:,sd-debug:\
+SHORTOPTS=o:P:nFp:l:t:i:m:u:s:M:wvqeTh
+LONGOPTS="output:,prefix:,no-partitions,fio,parts:,lvs,test:,iterations:,mp-debug:,udev-debug:,sd-debug:\
 monitor:,wait,verbose,quiet,terminal,trace,help"
 USAGE="
 usage: $ME [options] mapname [mapname ...]
@@ -1012,8 +1035,9 @@ usage: $ME [options] mapname [mapname ...]
        -P|--prefix		prefix for installed multipath-tools
        -o|--output		output directory (default: auto)
        -n|--no-partitions	don't create partitions (ignore -p)
-       -p|--parts x,y,z		partition types (ext2, xfs, btrfs, lvm, raw)
-       -l|--lvs x,y,z		logical volumes (ext2, xfs, btrfs, raw)
+       -F|--fio			run fio on devices / file systems
+       -p|--parts x,y,z		partition types (ext2, xfs, btrfs, lvm, raw, none)
+       -l|--lvs x,y,z		logical volumes (ext2, xfs, btrfs, raw, none)
        -t|--test file,args	test case to run, with arguments
        -i|--iterations n	test iterations (default 1)
        -m lvl|--mp-debug lvl	set multipathd debug level
@@ -1048,6 +1072,7 @@ NO_PARTITIONS=
 USING_SWAP=
 FS_USED=
 WAIT=
+FIO=
 while [[ $# -gt 0 ]]; do
     case $1 in
 	-h|--help)
@@ -1064,6 +1089,9 @@ while [[ $# -gt 0 ]]; do
 	    ;;
 	-n|--no-partitions)
 	    NO_PARTITIONS=yes
+	    ;;
+	-F|--fio)
+	    FIO=yes
 	    ;;
 	-p|--parts)
 	    shift
@@ -1127,6 +1155,10 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+if [[ $FIO ]]; then
+    which fio &>/dev//null
+fi
+
 LIBDIR=
 if [[ -d $PREFIX/lib64/multipath ]]; then
 	LIBDIR=$PREFIX/lib64
@@ -1186,8 +1218,10 @@ case "$FS_TYPES $LV_TYPES" in
 esac
 for _x in $FS_TYPES; do
     case $_x in
-	raw) continue;;
-	*) FS_USED=yes;;
+	none) ;;
+	raw)  if [[ $FIO ]]; then FS_USED=yes; fi
+	      ;;
+	*)    FS_USED=yes;;
     esac
 done
 
