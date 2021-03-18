@@ -6,44 +6,48 @@ test_offline_rmmap() {
     i=0
     while [[ $i -lt ${#PLISTS[@]} ]]; do
 	set -- ${PLISTS[$i]}
-	while [[ $# -gt 1 ]]; do
+	while [[ $# -gt 0 ]]; do
 	    action offline $1
 	    shift
 	done
-	# Trick: last path is not offline but failed in multipathd
-	# otherwise the map can't be re-added
-	action mp-fail $1
 	: $((++i))
     done
 
-    sleep 10
     new_step set paths offline
+    sleep 1
 
     for mp in ${MPATHS[@]}; do
 	multipathd remove map $mp
     done
 
-    sleep 5
     new_step -s -u removed maps
-
-    for mp in ${MPATHS[@]}; do
-	multipathd add map $mp
-    done
-
-    sleep 5
-    new_step re-added maps with 0 paths
+    sleep 1
 
     i=0
     while [[ $i -lt ${#PLISTS[@]} ]]; do
 	set -- ${PLISTS[$i]}
-	while [[ $# -gt 1 ]]; do
+	action online $1
+	: $((++i))
+    done
+    new_step -s -u restored 1 path
+    sleep 1
+
+    for mp in ${MPATHS[@]}; do
+	multipathd add map $mp
+    done
+    new_step re-added maps with 1 paths
+    sleep 1
+
+    i=0
+    while [[ $i -lt ${#PLISTS[@]} ]]; do
+	set -- ${PLISTS[$i]}
+	shift
+	while [[ $# -gt 0 ]]; do
 	    action online $1
 	    shift
 	done
-	action mp-reinstate $1
 	: $((++i))
     done
 
-    sleep 10
     new_step -k restored paths
 }

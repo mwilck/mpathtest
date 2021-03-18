@@ -6,32 +6,38 @@ test_remove_rmmap() {
     i=0
     while [[ $i -lt ${#PLISTS[@]} ]]; do
 	set -- ${PLISTS[$i]}
-	while [[ $# -gt 1 ]]; do
+	while [[ $# -gt 0 ]]; do
 	    action remove $1
 	    shift
 	done
-	# Trick: last path is not offline but failed in multipathd
-	# otherwise the map can't be re-added unless a path is back
-	action mp-fail $1
 	: $((++i))
     done
 
-    sleep 19
     new_step set paths offline
+    sleep 1
 
     for mp in ${MPATHS[@]}; do
 	multipathd remove map $mp
     done
 
-    sleep 5
     new_step -s -u removed maps
+    sleep 1
+
+    i=0
+    while [[ $i -lt ${#PLISTS[@]} ]]; do
+	set -- ${PLISTS[$i]}
+	action add $1
+	: $((++i))
+    done
+    new_step -s -u restored 1 path
+    sleep 1
 
     for mp in ${MPATHS[@]}; do
 	multipathd add map $mp
     done
 
-    sleep 5
-    new_step re-added maps with 0 paths
+    new_step re-added maps with 1 paths
+    sleep 1
 
     i=0
     while [[ $i -lt ${#PLISTS[@]} ]]; do
@@ -44,6 +50,6 @@ test_remove_rmmap() {
 	: $((++i))
     done
 
-    sleep 10
+    sleep 1
     new_step -k restored paths
 }
