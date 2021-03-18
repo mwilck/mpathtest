@@ -772,8 +772,28 @@ prepare_mpath() {
     fi
 }
 
+start_iostat() {
+    local p id cmd="" pid
+
+    [[ $IOSTAT == 0 ]] && return
+    cmd="iostat -x"
+    for p in "${PATHS[@]}"; do
+	id=$(hwid_to_block "$p")
+	[[ $id ]] || continue
+	cmd="$cmd /dev/$id"
+    done
+    cmd="$cmd ${MPATHS[@]/#/\/dev\/mapper\/} $IOSTAT"
+    msg 3 $cmd
+    $cmd &>$OUTD/iostat.log &
+    pid=$!
+    msg 2 started iostat with PID $pid, interval $IOSTAT
+    push_cleanup "kill -TERM $pid"
+}
+
 prepare() {
     local dev devsz mp
+
+    start_iostat
 
     make_disk_scripts ${PATHS[@]}
 
@@ -1056,8 +1076,8 @@ run_tests() {
     done
 }
 
-SHORTOPTS=o:P:nFkp:l:t:i:m:u:s:M:wvqeTh
-LONGOPTS="output:,prefix:,no-partitions,fio,keep,parts:,lvs,test:,\
+SHORTOPTS=o:P:nFI:kp:l:t:i:m:u:s:M:wvqeTh
+LONGOPTS="output:,prefix:,no-partitions,fio,iostat:,keep,parts:,lvs,test:,\
 iterations:,mp-debug:,udev-debug:,sd-debug:,\
 monitor:,wait,verbose,quiet,terminal,trace,help"
 USAGE="
@@ -1068,6 +1088,7 @@ usage: $ME [options] mapname [mapname ...]
        -k|--keep		keep output files even if no errors
        -n|--no-partitions	don't create partitions (ignore -p)
        -F|--fio			run fio on devices / file systems
+       -I|--iostat secs		run iostat with secs interval (0 - off)
        -p|--parts x,y,z		partition types (ext2, xfs, btrfs, lvm, raw, none)
        -l|--lvs x,y,z		logical volumes (ext2, xfs, btrfs, raw, none)
        -t|--test file,args	test case to run, with arguments
@@ -1095,7 +1116,7 @@ msg 2 Startup: $ME "$*"
 
 push_cleanup '[[ $OK ]] || : $((++ERRORS)); exit $((ERRORS > 0 ? 1 : 0))'
 push_cleanup '[[ $OK ]] || msg 1 $0 encountered an error. Check logs in $OUTD'
-push_cleanup 'msg 2 $ERRORS errors and $WARNINGS warnings encountered'
+push_cleanup 'msg 2 $ERRORS errors and $WARNINGS warnings encountered, logs in $OUTD'
 
 OK=
 TERMINAL=
@@ -1106,6 +1127,7 @@ USING_SWAP=
 FS_USED=
 WAIT=
 FIO=
+IOSTAT=0
 while [[ $# -gt 0 ]]; do
     case $1 in
 	-h|--help)
@@ -1128,6 +1150,10 @@ while [[ $# -gt 0 ]]; do
 	    ;;
 	-F|--fio)
 	    FIO=yes
+	    ;;
+	-I|--iostat)
+	    shift
+	    eval "IOSTAT=$1"
 	    ;;
 	-p|--parts)
 	    shift
@@ -1193,6 +1219,9 @@ done
 
 if [[ $FIO ]]; then
     which fio &>/dev//null
+fi
+if [[ $IOSTAT ]]; then
+    which iostat &>/dev//null
 fi
 
 LIBDIR=
