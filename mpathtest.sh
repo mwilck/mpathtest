@@ -861,7 +861,7 @@ check_initial_state() {
 	grep -q /tmp/$mp /proc/mounts || {
 	    start_mount_unit /tmp/$mp
 	    if grep -q /tmp/$mp /proc/mounts; then
-		warn /tmp/$mp was not mounted, started manually, see mounts.orig
+		msg 2 /tmp/$mp was not mounted, started manually, see mounts.orig
 		[[ -f  $OUTD/mounts.orig ]] || \
 		    mv $OUTD/mounts.$STEP $OUTD/mounts.orig
 		# Otherwise we will see mount diffs later
