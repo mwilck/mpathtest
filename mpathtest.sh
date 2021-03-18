@@ -17,7 +17,7 @@ MPATHS=()
 # LVs to create. All LVs will have equal size
 : ${LV_TYPES:="ext2 xfs"}
 # debug levels for multipathd (0-5) and udev (err, info, debug)
-: ${MULTIPATHD_DEBUG:=0}
+: ${MULTIPATHD_DEBUG:=2}
 : ${UDEV_DEBUG:=err}
 : ${SD_DEBUG:=err}
 : ${MONITOR_OPTS:=}
