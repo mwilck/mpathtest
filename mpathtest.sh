@@ -442,6 +442,7 @@ restart_multipathd() {
 	cat >/etc/systemd/system/multipathd.service.d/test.conf <<EOF
 [Service]
 ExecStart=
+Environment=LD_LIBRARY_PATH=$LIBDIR
 ExecStart=$BINDIR/multipathd -d -s ${MULTIPATHD_DEBUG:+-v$MULTIPATHD_DEBUG}
 EOF
     else
