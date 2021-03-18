@@ -687,7 +687,7 @@ create_fs() {
 	    mkfs.btrfs -q -f -L $label -U $uuid $pdev
 	    ;;
 	lvm)
-	    run_lvm pvcreate -f -q -u $uuid --norestorefile $pdev
+	    run_lvm pvcreate -f -q -q -u $uuid --norestorefile $pdev
 	    PVS[${#PVS[@]}]=$pdev
 	    ;;
 	swap)
@@ -725,14 +725,14 @@ create_lvs() {
     N_LVS=$#
     sz=$((100/N_LVS))
 
-    run_lvm vgcreate -q $VG "${PVS[@]}"
-    push_cleanup vgremove -q -f $VG
+    run_lvm vgcreate -q -q $VG "${PVS[@]}"
+    push_cleanup vgremove -q -q -f $VG
 
     while [[ $# -gt 0 ]]; do
 	N_FS=$((N_FS+1))
 	name=lv_${N_FS}_$1
-	run_lvm lvcreate -q -y -n $name -l ${sz}%FREE $VG
-	push_cleanup lvremove -q -f /dev/$VG/$name
+	run_lvm lvcreate -q -q -y -n $name -l ${sz}%FREE $VG
+	push_cleanup lvremove -q -q -f /dev/$VG/$name
 	LVS[${#LVS[@]}]=$name
 	create_fs /dev/$VG/$name $1
 	shift
