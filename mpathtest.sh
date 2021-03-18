@@ -359,10 +359,10 @@ _make_disk_scripts() {
 	    msg 1 unsupported blockdev type: $1; false
 	    ;;
     esac
-    echo multipathd add path "$bl" "# $bd=$1" >$TMPD/mp-add-$1
-    echo multipathd remove path "$bl" >$TMPD/mp-remove-$1
-    echo multipathd fail path $bl >$TMPD/mp-fail-$1
-    echo multipathd reinstate path $bl >$TMPD/mp-reinstate-$1
+    echo "multipathd add path $bl >/dev/null" >$TMPD/mp-add-$1
+    echo "multipathd remove path $bl >/dev/null" >$TMPD/mp-remove-$1
+    echo "multipathd fail path $bl >/dev/null" >$TMPD/mp-fail-$1
+    echo "multipathd reinstate path $bl >/dev/null" >$TMPD/mp-reinstate-$1
 }
 
 make_disk_scripts() {
