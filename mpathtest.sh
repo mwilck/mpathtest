@@ -618,7 +618,7 @@ clear_parts() {
     # Make sure no symlinks to paths remain after run
     # these may mess up results in next run
     local p b
-    sgdisk --zap-all /dev/mapper/$1
+    sgdisk --zap-all /dev/mapper/$1 &>/dev/null
     for p in ${PATHS[@]}; do
 	b=$(hwid_to_block $p) || true
 	[[ $b && -b /dev/$b ]] || continue
