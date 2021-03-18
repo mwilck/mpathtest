@@ -8,6 +8,7 @@ set -E
 
 # mpath name
 MPATHS=()
+: ${PREFIX:=}
 : ${DEBUGLVL:=2}
 : ${UUID_PATTERN:=54f41f67-bd36-%s-%04x-0966d6a9c810}
 : ${VG:=tm_vg}
@@ -433,19 +434,18 @@ start_monitor() {
     systemctl start tm-udev-monitor@block.service
 }
 
-debug_multipathd() {
+restart_multipathd() {
     # arg $1: "on" or "off"
-    [[ $MULTIPATHD_DEBUG -gt 0 ]] || return 0
     if [[ x$1 = xon ]]; then
 	msg 4 setting verbose level $MULTIPATHD_DEBUG for multipathd
 	mkdir -p /etc/systemd/system/multipathd.service.d
-	cat >/etc/systemd/system/multipathd.service.d/debug.conf <<EOF
+	cat >/etc/systemd/system/multipathd.service.d/test.conf <<EOF
 [Service]
 ExecStart=
-ExecStart=/sbin/multipathd -d -s -v$MULTIPATHD_DEBUG
+ExecStart=$BINDIR/multipathd -d -s ${MULTIPATHD_DEBUG:+-v$MULTIPATHD_DEBUG}
 EOF
     else
-	rm -f /etc/systemd/system/multipathd.service.d/debug.conf
+	rm -f /etc/systemd/system/multipathd.service.d/test.conf
     fi
     reload_systemd
     msg 3 restarting multipathd
@@ -1002,12 +1002,13 @@ run_tests() {
     done
 }
 
-SHORTOPTS=o:np:l:t:i:m:u:s:M:wvqeTh
-LONGOPTS="output:,parts:,lvs,test:,iterations:,mp-debug:,udev-debug:,sd-debug:\
+SHORTOPTS=o:P:np:l:t:i:m:u:s:M:wvqeTh
+LONGOPTS="output:,prefix:,parts:,lvs,test:,iterations:,mp-debug:,udev-debug:,sd-debug:\
 monitor:,wait,verbose,quiet,terminal,trace,help"
 USAGE="
 usage: $ME [options] mapname [mapname ...]
        -h|--help		print help
+       -P|--prefix		prefix for installed multipath-tools
        -o|--output		output directory (default: auto)
        -n|--no-partitions	don't create partitions (ignore -p)
        -p|--parts x,y,z		partition types (ext2, xfs, btrfs, lvm, raw)
@@ -1049,6 +1050,10 @@ while [[ $# -gt 0 ]]; do
 	-o|--output)
 	    shift
 	    eval "OUTD=$1"
+	    ;;
+	-P|--prefix)
+	    shift
+	    eval "PREFIX=$1"
 	    ;;
 	-n|--no-partitions)
 	    NO_PARTITIONS=yes
@@ -1114,6 +1119,37 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+LIBDIR=
+if [[ -d $PREFIX/lib64/multipath ]]; then
+	LIBDIR=$PREFIX/lib64
+elif [[ -d $PREFIX/lib/multipath ]]; then
+	LIBDIR=$PREFIX/lib
+fi
+[[ $LIBDIR ]]
+
+BINDIR=
+if [[ -x $PREFIX/sbin/multipathd ]]; then
+	BINDIR=$PREFIX/sbin
+elif [[ -d $PREFIX/bin/multipathd ]]; then
+	BINDIR=$PREFIX/bin
+fi
+[[ $BINDIR ]]
+
+if [[ $PREFIX ]]; then
+    export LD_LIBRARY_PATH=$LIBDIR
+    export PATH=$BINDIR:$PATH
+    mkdir -p $PREFIX/etc
+    mv -f /etc/multipath.conf $PREFIX/etc/system.conf
+    push_cleanup 'mv -f $PREFIX/etc/system.conf /etc/multipath.conf'
+    cat >/etc/multipath.conf <<EOF
+defaults {
+	 config_dir $PREFIX/etc
+	 multipath_dir $LIBDIR/multipath
+}
+EOF
+fi
+
 if [[ $# -ge 1 ]]; then
     eval "MPATHS=($@)"
     for _mp in ${MPATHS[@]}; do
@@ -1155,8 +1191,8 @@ push_cleanup rm -rf "$TMPD"
 msg 1 output dir is $OUTD
 
 push_cleanup journalctl -o short-monotonic --since '"$STARTTIME"' '>$OUTD/journal.log'
-debug_multipathd on
-push_cleanup debug_multipathd off
+restart_multipathd on
+push_cleanup restart_multipathd off
 debug_udev on
 push_cleanup debug_udev off
 debug_systemd on
